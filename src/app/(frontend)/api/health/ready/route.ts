@@ -61,7 +61,15 @@ export async function GET() {
       { checks, status: 'ready', time: new Date().toISOString() },
       { headers: { 'Cache-Control': 'no-store' } },
     )
-  } catch {
+  } catch (error) {
+    console.error('Readiness check failed', {
+      checks,
+      error: error instanceof Error ? error.message : String(error),
+      code:
+        error && typeof error === 'object' && 'Code' in error
+          ? String(error.Code)
+          : undefined,
+    })
     return NextResponse.json(
       { checks, status: 'not-ready', time: new Date().toISOString() },
       { headers: { 'Cache-Control': 'no-store' }, status: 503 },
