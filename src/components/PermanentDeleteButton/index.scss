@@ -1,0 +1,25 @@
+.permanent-delete-button {
+  appearance: none;
+  border: 1px solid var(--theme-error-500);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--theme-error-500);
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 12px;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--theme-error-100);
+  }
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+}

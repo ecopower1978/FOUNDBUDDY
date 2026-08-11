@@ -1,0 +1,58 @@
+.product-row-action {
+  appearance: none;
+  border: 1px solid var(--theme-elevation-250);
+  border-radius: 6px;
+  background: var(--theme-elevation-100);
+  color: var(--theme-text);
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  min-width: 58px;
+  padding: 9px 12px;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    background: var(--theme-elevation-150);
+    border-color: var(--theme-elevation-400);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-success-500);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+
+  &--listed {
+    border-color: var(--theme-warning-500);
+    color: var(--theme-warning-500);
+  }
+
+  &--unlisted {
+    border-color: var(--theme-success-500);
+    color: var(--theme-success-500);
+  }
+
+  &--delete {
+    border-color: transparent;
+    background: transparent;
+    color: var(--theme-error-500);
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+      border-color: var(--theme-error-500);
+      background: var(--theme-error-100);
+    }
+  }
+}
+
+.cell-rowActions {
+  text-align: right;
+}

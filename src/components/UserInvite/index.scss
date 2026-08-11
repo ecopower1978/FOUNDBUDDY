@@ -1,0 +1,46 @@
+.user-invite {
+  margin-block-end: var(--base);
+}
+
+.user-invite form {
+  align-items: end;
+  background: var(--theme-elevation-50);
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: var(--style-radius-m);
+  display: grid;
+  gap: calc(var(--base) * 0.6);
+  grid-template-columns: minmax(12rem, 1fr) minmax(16rem, 1.4fr) minmax(10rem, 0.7fr) auto;
+  margin-block-start: calc(var(--base) * 0.6);
+  padding: var(--base);
+}
+
+.user-invite label {
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 600;
+  gap: 0.35rem;
+}
+
+.user-invite input,
+.user-invite select {
+  background: var(--theme-input-bg);
+  border: 1px solid var(--theme-elevation-250);
+  border-radius: var(--style-radius-s);
+  color: var(--theme-text);
+  min-height: 2.5rem;
+  padding-inline: 0.7rem;
+}
+
+.user-invite p {
+  color: var(--theme-elevation-600);
+  font-size: 0.78rem;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .user-invite form {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+}

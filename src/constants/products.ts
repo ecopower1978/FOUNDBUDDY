@@ -1,0 +1,1 @@
+export const MAX_HOMEPAGE_PRODUCTS = 8
