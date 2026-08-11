@@ -74,6 +74,33 @@ export const env = {
   },
 } as const
 
+/**
+ * The apex and www hostnames are the same application, but browsers send a
+ * different Origin for each one. Payload's CSRF check must allow both hosts
+ * or cookie-authenticated write requests will be rejected with HTTP 403.
+ */
+function getSiteOrigins(siteURL: string): string[] {
+  const canonical = new URL(siteURL)
+  const origins = new Set([canonical.origin])
+
+  if (
+    canonical.hostname !== 'localhost' &&
+    canonical.hostname !== '127.0.0.1' &&
+    !canonical.hostname.endsWith('.local') &&
+    !canonical.hostname.endsWith('.example')
+  ) {
+    const alternate = new URL(canonical)
+    alternate.hostname = canonical.hostname.startsWith('www.')
+      ? canonical.hostname.slice(4)
+      : `www.${canonical.hostname}`
+    origins.add(alternate.origin)
+  }
+
+  return [...origins]
+}
+
+export const siteOrigins = getSiteOrigins(env.siteURL)
+
 export const isS3Configured = Boolean(
   env.s3.bucket &&
     env.s3.accessKeyId &&

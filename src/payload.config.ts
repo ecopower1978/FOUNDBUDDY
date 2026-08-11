@@ -13,7 +13,7 @@ import { Media } from '@/collections/Media'
 import { Posts } from '@/collections/Posts'
 import { Products } from '@/collections/Products'
 import { Users } from '@/collections/Users'
-import { env, isSMTPConfigured } from '@/config/env'
+import { env, isSMTPConfigured, siteOrigins } from '@/config/env'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { Company } from '@/globals/Company'
 import { CustomerService } from '@/globals/CustomerService'
@@ -99,8 +99,8 @@ export default buildConfig({
   }),
   email,
   collections: [Products, Posts, Media, Categories, Users, AuditEvents],
-  cors: [env.siteURL],
-  csrf: [env.siteURL],
+  cors: siteOrigins,
+  csrf: siteOrigins,
   globals: [Company, CustomerService, Homepage],
   graphQL: {
     disablePlaygroundInProduction: true,
