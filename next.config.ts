@@ -68,6 +68,13 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1'],
   output: 'standalone',
+  outputFileTracingIncludes: {
+    '/*': [
+      './node_modules/sharp/**/*',
+      './node_modules/@img/sharp-linux-x64/**/*',
+      './node_modules/@img/sharp-libvips-linux-x64/**/*',
+    ],
+  },
   // Temporarily required on Windows until Next.js fixes Turbopack Sass resolution.
   // See: https://github.com/vercel/next.js/issues/86431
   sassOptions: {
