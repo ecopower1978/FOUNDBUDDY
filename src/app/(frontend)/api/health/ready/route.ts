@@ -69,6 +69,10 @@ export async function GET() {
         error && typeof error === 'object' && 'Code' in error
           ? String(error.Code)
           : undefined,
+      metadata:
+        error && typeof error === 'object' && '$metadata' in error
+          ? error.$metadata
+          : undefined,
     })
     return NextResponse.json(
       { checks, status: 'not-ready', time: new Date().toISOString() },
