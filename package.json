@@ -5,9 +5,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
-    "build:blank": "cross-env NODE_OPTIONS=--no-deprecation SITE_VARIANT=blank next build",
-    "build:demo": "cross-env NODE_OPTIONS=--no-deprecation SITE_VARIANT=demo next build",
+    "build": "cross-env NODE_OPTIONS=--no-deprecation next build --webpack",
+    "build:blank": "cross-env NODE_OPTIONS=--no-deprecation SITE_VARIANT=blank next build --webpack",
+    "build:demo": "cross-env NODE_OPTIONS=--no-deprecation SITE_VARIANT=demo next build --webpack",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
     "dev:blank": "cross-env NODE_OPTIONS=--no-deprecation SITE_VARIANT=blank next dev",
     "dev:demo": "cross-env NODE_OPTIONS=--no-deprecation SITE_VARIANT=demo next dev",
