@@ -73,6 +73,10 @@
     "tailwind-merge": "^3.4.0",
     "zod": "^3.25.76"
   },
+  "optionalDependencies": {
+    "@img/sharp-libvips-linux-x64": "1.3.2",
+    "@img/sharp-linux-x64": "0.35.3"
+  },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
     "@playwright/test": "1.58.2",
