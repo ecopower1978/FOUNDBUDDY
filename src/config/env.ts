@@ -21,11 +21,14 @@ const productionSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_PUBLIC_URL: z.string().url().startsWith('https://'),
-  REDIS_URL: z.string().url(),
-  SMTP_HOST: z.string().min(1),
-  SMTP_PORT: z.coerce.number().int().positive(),
-  SMTP_FROM_ADDRESS: z.string().email(),
-  SMTP_FROM_NAME: z.string().min(1),
+  // Redis and SMTP are optional for the initial/demo deployment. The runtime
+  // already has an in-memory rate-limit/idempotency fallback, and Payload
+  // leaves email disabled when SMTP is not configured.
+  REDIS_URL: z.string().url().optional(),
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_FROM_ADDRESS: z.string().email().optional(),
+  SMTP_FROM_NAME: z.string().min(1).optional(),
   TRUST_PROXY_HEADERS: z.literal('true'),
 })
 
