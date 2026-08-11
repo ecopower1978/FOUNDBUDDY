@@ -1,6 +1,7 @@
 import type { PayloadRequest } from 'payload'
 
 export type AuditAction =
+  | 'admin.bootstrap.completed'
   | 'account.created'
   | 'account.deleted'
   | 'account.login'
