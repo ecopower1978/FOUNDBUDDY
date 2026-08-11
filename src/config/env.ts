@@ -32,7 +32,10 @@ const productionSchema = z.object({
   TRUST_PROXY_HEADERS: z.literal('true'),
 })
 
-if (process.env.NODE_ENV === 'production') {
+// This module is also referenced by the frontend layout metadata. Keep the
+// strict production validation on the server, where the private environment
+// variables exist, and never run it in the browser bundle.
+if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
   const result = productionSchema.safeParse(process.env)
   if (!result.success) {
     const issues = result.error.issues
