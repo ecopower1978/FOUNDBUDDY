@@ -81,7 +81,15 @@ export const env = {
  */
 function getSiteOrigins(siteURL: string): string[] {
   const canonical = new URL(siteURL)
-  const origins = new Set([canonical.origin])
+  const origins = new Set([
+    canonical.origin,
+    // These are the verified production aliases for the current project.
+    // Keep them here so auth continues to work even if SITE_URL still points
+    // at the Vercel alias while a user opens the custom domain.
+    'https://foundbuddy.com',
+    'https://www.foundbuddy.com',
+    'https://foundbuddy.vercel.app',
+  ])
 
   if (
     canonical.hostname !== 'localhost' &&
