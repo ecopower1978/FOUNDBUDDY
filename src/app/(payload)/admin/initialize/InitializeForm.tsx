@@ -23,7 +23,11 @@ export default function InitializeForm() {
     event.preventDefault()
     setStatus(null)
 
-    const values = new FormData(event.currentTarget)
+    // React's currentTarget is only guaranteed during the synchronous event
+    // callback. Capture the form before awaiting the network request so a
+    // successful response cannot be followed by a client-side null error.
+    const form = event.currentTarget
+    const values = new FormData(form)
     const password = String(values.get('password') || '')
     const confirmPassword = String(values.get('confirmPassword') || '')
     if (password !== confirmPassword) {
@@ -52,7 +56,7 @@ export default function InitializeForm() {
         kind: 'success',
         message: '管理员账号已创建。请使用刚才填写的邮箱和密码登录后台。',
       })
-      event.currentTarget.reset()
+      form.reset()
     } catch (error) {
       setStatus({
         kind: 'error',
