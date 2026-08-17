@@ -14,7 +14,14 @@ async function getRedis() {
   if (!env.redisURL) return null
   if (client?.isReady) return client
   if (!connecting) {
-    const next = createClient({ url: env.redisURL })
+    const next = createClient({
+      socket: {
+        connectTimeout: 3_000,
+        reconnectStrategy: (retries) =>
+          retries >= 3 ? new Error('Redis connection unavailable') : Math.min(retries * 250, 1_000),
+      },
+      url: env.redisURL,
+    })
     next.on('error', () => undefined)
     connecting = next.connect().then(() => {
       client = next as RedisClientType

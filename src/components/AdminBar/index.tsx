@@ -5,7 +5,7 @@ import type { PayloadAdminBarProps, PayloadMeUser } from '@payloadcms/admin-bar'
 import { cn } from '@/utilities/ui'
 import { useSelectedLayoutSegments } from 'next/navigation'
 import { PayloadAdminBar } from '@payloadcms/admin-bar'
-import React, { useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import './index.scss'
@@ -35,16 +35,30 @@ export const AdminBar: React.FC<{
   adminBarProps?: PayloadAdminBarProps
 }> = (props) => {
   const { adminBarProps } = props || {}
+  const previewProp = adminBarProps?.preview
   const segments = useSelectedLayoutSegments()
   const [show, setShow] = useState(false)
+  const [preview, setPreview] = useState(Boolean(previewProp))
+  const previewChecked = useRef(typeof previewProp === 'boolean')
   const collection = (
     collectionLabels[segments?.[1] as keyof typeof collectionLabels] ? segments[1] : 'pages'
   ) as keyof typeof collectionLabels
   const router = useRouter()
 
-  const onAuthChange = React.useCallback((user: PayloadMeUser) => {
-    setShow(Boolean(user?.id))
+  const checkPreview = useCallback(() => {
+    if (previewChecked.current) return
+    previewChecked.current = true
+    fetch('/api/preview/status', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data: { enabled?: boolean }) => setPreview(Boolean(data.enabled)))
+      .catch(() => undefined)
   }, [])
+
+  const onAuthChange = useCallback((user: PayloadMeUser) => {
+    const authenticated = Boolean(user?.id)
+    setShow(authenticated)
+    if (authenticated) checkPreview()
+  }, [checkPreview])
 
   return (
     <div
@@ -56,6 +70,7 @@ export const AdminBar: React.FC<{
       <div className="container">
         <PayloadAdminBar
           {...adminBarProps}
+          preview={preview}
           className="py-2 text-white"
           classNames={{
             controls: 'font-medium text-white',
@@ -78,6 +93,7 @@ export const AdminBar: React.FC<{
           logo={<Title />}
           onAuthChange={onAuthChange}
           onPreviewExit={() => {
+            setPreview(false)
             fetch('/next/exit-preview').then(() => {
               router.push('/')
               router.refresh()

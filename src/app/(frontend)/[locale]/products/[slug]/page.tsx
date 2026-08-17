@@ -1,10 +1,8 @@
-import configPromise from '@payload-config'
 import { ArrowLeft, ArrowRight, Check, Mail, MessageCircle, PackageCheck } from 'lucide-react'
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getPayload } from 'payload'
 import { cache } from 'react'
 
 import type { Media, Product } from '@/payload-types'
@@ -15,8 +13,13 @@ import { siteBrandName, siteContactEmail } from '@/config/siteVariant'
 
 import { ProductGallery } from './ProductGallery'
 import { getCompany } from '@/data/company'
+import {
+  getCachedPublishedProduct,
+  getCachedRelatedProducts,
+} from '@/data/publicContent'
 
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-static'
+export const revalidate = 300
 
 type Args = {
   params: Promise<{ locale: string; slug?: string }>
@@ -120,21 +123,7 @@ function getImages(product: Product) {
 }
 
 const queryProduct = cache(async ({ locale, slug }: { locale: SiteLocale; slug: string }) => {
-  const payload = await getPayload({ config: configPromise })
-  const result = await payload.find({
-    collection: 'products',
-    depth: 1,
-    draft: false,
-    fallbackLocale: ['en', 'zh-CN'],
-    limit: 1,
-    locale,
-    pagination: false,
-    where: {
-      and: [{ slug: { equals: slug } }, { _status: { equals: 'published' } }],
-    },
-  })
-
-  return result.docs[0] || null
+  return getCachedPublishedProduct(locale, slug)
 })
 
 export default async function ProductDetailPage({ params }: Args) {
@@ -145,23 +134,9 @@ export default async function ProductDetailPage({ params }: Args) {
 
   if (!product) notFound()
 
-  const payload = await getPayload({ config: configPromise })
   const [company, relatedResult] = await Promise.all([
     getCompany(locale),
-    payload.find({
-      collection: 'products',
-      depth: 1,
-      fallbackLocale: ['en', 'zh-CN'],
-      limit: 4,
-      locale,
-      where: {
-        and: [
-          { _status: { equals: 'published' } },
-          { id: { not_equals: product.id } },
-          ...(product.category ? [{ category: { equals: product.category } }] : []),
-        ],
-      },
-    }),
+    getCachedRelatedProducts(locale, product.id, product.category),
   ])
   const text = detailCopy[locale]
   const images = getImages(product)

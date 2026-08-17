@@ -78,7 +78,8 @@ const nextConfig: NextConfig = {
         pathname: '/api/media/file/**',
       },
     ],
-    qualities: [100],
+    minimumCacheTTL: 60 * 60 * 24,
+    qualities: [75, 85],
     remotePatterns: [
       ...imageOrigins.map((item) => {
         const url = new URL(item)

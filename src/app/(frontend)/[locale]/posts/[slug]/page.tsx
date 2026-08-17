@@ -16,6 +16,7 @@ import PageClient from './page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { isSiteLocale, type SiteLocale } from '@/i18n/config'
 import { demoteNestedH1 } from '@/utilities/richTextHeadings'
+import { getCachedPublishedPost } from '@/data/publicContent'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,6 +82,8 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
 
 const queryPostBySlug = cache(async ({ slug, locale }: { slug: string; locale: SiteLocale }) => {
   const { isEnabled: draft } = await draftMode()
+
+  if (!draft) return getCachedPublishedPost(locale, slug)
 
   const payload = await getPayload({ config: configPromise })
 

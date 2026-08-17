@@ -1,11 +1,10 @@
-import configPromise from '@payload-config'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getPayload } from 'payload'
 
 import { getMessages, isSiteLocale, localeMeta, locales } from '@/i18n/config'
+import { getCachedPublishedPosts } from '@/data/publicContent'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,17 +20,7 @@ export default async function BlogPage({ params, searchParams }: BlogPageProps) 
   const page =
     Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1
   const t = getMessages(locale)
-  const payload = await getPayload({ config: configPromise })
-  const posts = await payload.find({
-    collection: 'posts',
-    locale,
-    fallbackLocale: ['en', 'zh-CN'],
-    depth: 1,
-    limit: 12,
-    page,
-    sort: '-publishedAt',
-    where: { _status: { equals: 'published' } },
-  })
+  const posts = await getCachedPublishedPosts(locale, 12, page)
   if (posts.totalPages > 0 && page > posts.totalPages) notFound()
 
   return (

@@ -1,4 +1,3 @@
-import configPromise from '@payload-config'
 import {
   ArrowRight,
   Check,
@@ -11,7 +10,6 @@ import {
 } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getPayload } from 'payload'
 
 import { getMessages, isSiteLocale, localeMeta, locales, type SiteLocale } from '@/i18n/config'
 import { HeroProductCarousel } from '@/components/HeroProductCarousel'
@@ -19,6 +17,11 @@ import { ProductCarousel } from '@/components/ProductCarousel'
 import { demoProductImages, isDemoSite, siteBrandName, siteContactEmail } from '@/config/siteVariant'
 import { isLocaleTranslationComplete } from '@/i18n/translationWorkflow'
 import { getCompany } from '@/data/company'
+import {
+  getCachedHomepage,
+  getCachedPublishedPosts,
+  getCachedPublishedProducts,
+} from '@/data/publicContent'
 import type { Product } from '@/payload-types'
 
 type MediaValue = { alt?: string | null; url?: string | null }
@@ -157,6 +160,9 @@ type HomePageProps = {
   params: Promise<{ locale: string }>
 }
 
+export const revalidate = 300
+export const dynamic = 'force-static'
+
 function resolveLocale(value: string): SiteLocale {
   return isSiteLocale(value) ? value : 'en'
 }
@@ -202,33 +208,11 @@ function getMedia(value: unknown): MediaValue | null {
 export default async function HomePage({ params }: HomePageProps) {
   const locale = resolveLocale((await params).locale)
   const t = getMessages(locale)
-  const payload = await getPayload({ config: configPromise })
   const [productResult, postResult, company, homepage] = await Promise.all([
-    payload.find({
-      collection: 'products',
-      locale,
-      fallbackLocale: ['en', 'zh-CN'],
-      depth: 1,
-      limit: 12,
-      sort: '-createdAt',
-      where: { _status: { equals: 'published' } },
-    }),
-    payload.find({
-      collection: 'posts',
-      locale,
-      fallbackLocale: ['en', 'zh-CN'],
-      depth: 1,
-      limit: 3,
-      sort: '-publishedAt',
-      where: { _status: { equals: 'published' } },
-    }),
+    getCachedPublishedProducts(locale),
+    getCachedPublishedPosts(locale),
     getCompany(locale),
-      payload.findGlobal({
-        slug: 'homepage',
-        depth: 2,
-        fallbackLocale: ['en', 'zh-CN'],
-        locale,
-      }),
+    getCachedHomepage(locale),
   ])
 
   const selectedHomepageProducts = (homepage.featuredProducts || []).filter(isPublishedProduct)
