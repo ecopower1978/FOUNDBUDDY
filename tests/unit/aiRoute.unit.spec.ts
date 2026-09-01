@@ -1,5 +1,16 @@
 import { NextRequest } from 'next/server'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+// This unit suite must not observe the customer-service global written by the
+// integration suite in the shared temporary database.
+vi.mock('@/utilities/getCustomerServiceConfig', () => ({
+  getCustomerServiceConfig: vi.fn(async () => ({
+    apiKey: '',
+    apiUrl: '',
+    authScheme: 'none',
+    enabled: false,
+  })),
+}))
 
 import { POST } from '@/app/(frontend)/api/ai-chat/route'
 
@@ -52,5 +63,5 @@ describe('AI customer-service API boundaries', () => {
     expect(response.status).toBe(200)
     const result = (await response.json()) as { answer?: string }
     expect(result.answer).toContain('WhatsApp')
-  }, 15_000)
+  })
 })
