@@ -137,7 +137,7 @@ async function generateMediaVariants(media: MediaRecord, req: PayloadRequest) {
       }),
     )
 
-    const sizes = generated.reduce<Record<string, Record<string, unknown>>>(
+    const sizes = generated.reduce<Record<string, Record<string, unknown> | null>>(
       (result, item) => {
         result[item.name] = {
           filename: item.filename,
