@@ -21,6 +21,7 @@ const productionSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_PUBLIC_URL: z.string().url().startsWith('https://'),
+  S3_CLIENT_UPLOADS: z.enum(['true', 'false']).optional(),
   // Redis and SMTP are optional for the initial/demo deployment. The runtime
   // already has an in-memory rate-limit/idempotency fallback, and Payload
   // leaves email disabled when SMTP is not configured.
@@ -57,6 +58,7 @@ export const env = {
   s3: {
     accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
     bucket: process.env.S3_BUCKET || '',
+    clientUploads: process.env.S3_CLIENT_UPLOADS === 'true',
     endpoint: process.env.S3_ENDPOINT || '',
     forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
     publicURL: (process.env.S3_PUBLIC_URL || '').replace(/\/$/, ''),

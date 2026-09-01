@@ -4,6 +4,7 @@ import * as migration_20260729_030454_preserve_legacy_product_fields from './202
 import * as migration_20260802_000000_customer_service_config from './20260802_000000_customer_service_config';
 import * as migration_20260901_000000_add_media_prefix from './20260901_000000_add_media_prefix';
 import * as migration_20260901_010000_add_media_banner_size from './20260901_010000_add_media_banner_size';
+import * as migration_20260901_020000_add_media_job from './20260901_020000_add_media_job';
 
 export const migrations = [
   {
@@ -35,5 +36,10 @@ export const migrations = [
     up: migration_20260901_010000_add_media_banner_size.up,
     down: migration_20260901_010000_add_media_banner_size.down,
     name: '20260901_010000_add_media_banner_size',
+  },
+  {
+    up: migration_20260901_020000_add_media_job.up,
+    down: migration_20260901_020000_add_media_job.down,
+    name: '20260901_020000_add_media_job',
   },
 ];

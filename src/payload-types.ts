@@ -124,6 +124,7 @@ export interface Config {
       translateProduct: TaskTranslateProduct;
       translatePost: TaskTranslatePost;
       translateCompany: TaskTranslateCompany;
+      generateMediaSizes: TaskGenerateMediaSizes;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -233,18 +234,6 @@ export interface Media {
     };
     [k: string]: unknown;
   } | null;
-  prefix?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
   sizes?: {
     thumbnail?: {
       url?: string | null;
@@ -311,6 +300,18 @@ export interface Media {
       filename?: string | null;
     };
   };
+  focalX?: number | null;
+  focalY?: number | null;
+  prefix?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
 }
 /**
  * 撰写行业资讯、产品知识和公司动态。可以先保存草稿，确认后再发布。
@@ -549,7 +550,13 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'translateProduct' | 'translatePost' | 'translateCompany' | 'schedulePublish';
+        taskSlug:
+          | 'inline'
+          | 'translateProduct'
+          | 'translatePost'
+          | 'translateCompany'
+          | 'generateMediaSizes'
+          | 'schedulePublish';
         taskID: string;
         input?:
           | {
@@ -582,7 +589,9 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'translateProduct' | 'translatePost' | 'translateCompany' | 'schedulePublish') | null;
+  taskSlug?:
+    | ('inline' | 'translateProduct' | 'translatePost' | 'translateCompany' | 'generateMediaSizes' | 'schedulePublish')
+    | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -746,18 +755,6 @@ export interface MediaSelect<T extends boolean = true> {
   migrationKey?: T;
   alt?: T;
   caption?: T;
-  prefix?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
   sizes?:
     | T
     | {
@@ -842,6 +839,18 @@ export interface MediaSelect<T extends boolean = true> {
               filename?: T;
             };
       };
+  focalX?: T;
+  focalY?: T;
+  prefix?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1191,6 +1200,18 @@ export interface TaskTranslateCompany {
     translated: number;
     failed: number;
     stale: boolean;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskGenerateMediaSizes".
+ */
+export interface TaskGenerateMediaSizes {
+  input: {
+    mediaId: string;
+  };
+  output: {
+    generated: number;
   };
 }
 /**

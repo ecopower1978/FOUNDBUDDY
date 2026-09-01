@@ -16,7 +16,18 @@ export async function POST(request: Request) {
   const payload = await getPayload({ config: configPromise })
   const req = await createLocalReq({}, payload)
   try {
-    const result = await payload.jobs.run({
+    // Image derivatives are deliberately processed in a small, serial batch
+    // so a Vercel invocation cannot saturate the Sharp worker pool. Translation
+    // jobs keep their existing queue and behavior.
+    const media = await payload.jobs.run({
+      limit: 5,
+      overrideAccess: true,
+      queue: 'media',
+      req,
+      sequential: true,
+      silent: true,
+    })
+    const translations = await payload.jobs.run({
       limit: 10,
       overrideAccess: true,
       queue: 'translations',
@@ -25,10 +36,12 @@ export async function POST(request: Request) {
       silent: true,
     })
 
-    return NextResponse.json({ ok: true, result })
+    // Keep `result` compatible with the previous translation-only response;
+    // expose media stats alongside it for observability.
+    return NextResponse.json({ media, ok: true, result: translations })
   } catch (error) {
-    payload.logger.error({ err: error, message: 'Translation job runner failed' })
-    await sendSystemAlert(payload, 'Translation job runner failed', error)
+    payload.logger.error({ err: error, message: 'Media and translation job runner failed' })
+    await sendSystemAlert(payload, 'Media and translation job runner failed', error)
     return NextResponse.json({ error: 'Job runner unavailable' }, { status: 503 })
   }
 }

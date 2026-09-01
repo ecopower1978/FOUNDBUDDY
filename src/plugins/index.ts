@@ -45,6 +45,10 @@ if (isS3Configured || process.env.NODE_ENV === 'production') {
     s3Storage({
       alwaysInsertFields: true,
       bucket: env.s3.bucket,
+      // Keep this opt-in until the bucket CORS policy allows browser PUTs.
+      // When enabled, the browser uploads the original directly to S3/R2,
+      // reducing server request-body transfer while keeping async derivatives.
+      clientUploads: env.s3.clientUploads,
       collections: {
         media: {
           generateFileURL: ({ filename, prefix }) =>
@@ -68,4 +72,3 @@ if (isS3Configured || process.env.NODE_ENV === 'production') {
 }
 
 export const plugins = corePlugins
-

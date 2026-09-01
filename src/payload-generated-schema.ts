@@ -138,6 +138,7 @@ export const enum_payload_jobs_log_task_slug = pgEnum('enum_payload_jobs_log_tas
   'translateProduct',
   'translatePost',
   'translateCompany',
+  'generateMediaSizes',
   'schedulePublish',
 ])
 export const enum_payload_jobs_log_state = pgEnum('enum_payload_jobs_log_state', [
@@ -149,6 +150,7 @@ export const enum_payload_jobs_task_slug = pgEnum('enum_payload_jobs_task_slug',
   'translateProduct',
   'translatePost',
   'translateCompany',
+  'generateMediaSizes',
   'schedulePublish',
 ])
 export const enum_company_translation_status_locale = pgEnum(
@@ -786,22 +788,6 @@ export const media = pgTable(
   {
     id: serial('id').primaryKey(),
     migrationKey: varchar('migration_key'),
-    prefix: varchar('prefix').default('media'),
-    updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true, precision: 3 })
-      .defaultNow()
-      .notNull(),
-    createdAt: timestamp('created_at', { mode: 'string', withTimezone: true, precision: 3 })
-      .defaultNow()
-      .notNull(),
-    url: varchar('url'),
-    thumbnailURL: varchar('thumbnail_u_r_l'),
-    filename: varchar('filename'),
-    mimeType: varchar('mime_type'),
-    filesize: numeric('filesize', { mode: 'number' }),
-    width: numeric('width', { mode: 'number' }),
-    height: numeric('height', { mode: 'number' }),
-    focalX: numeric('focal_x', { mode: 'number' }),
-    focalY: numeric('focal_y', { mode: 'number' }),
     sizes_thumbnail_url: varchar('sizes_thumbnail_url'),
     sizes_thumbnail_width: numeric('sizes_thumbnail_width', { mode: 'number' }),
     sizes_thumbnail_height: numeric('sizes_thumbnail_height', { mode: 'number' }),
@@ -850,12 +836,25 @@ export const media = pgTable(
     sizes_banner_mimeType: varchar('sizes_banner_mime_type'),
     sizes_banner_filesize: numeric('sizes_banner_filesize', { mode: 'number' }),
     sizes_banner_filename: varchar('sizes_banner_filename'),
+    focalX: numeric('focal_x', { mode: 'number' }),
+    focalY: numeric('focal_y', { mode: 'number' }),
+    prefix: varchar('prefix').default('media'),
+    updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true, precision: 3 })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp('created_at', { mode: 'string', withTimezone: true, precision: 3 })
+      .defaultNow()
+      .notNull(),
+    url: varchar('url'),
+    thumbnailURL: varchar('thumbnail_u_r_l'),
+    filename: varchar('filename'),
+    mimeType: varchar('mime_type'),
+    filesize: numeric('filesize', { mode: 'number' }),
+    width: numeric('width', { mode: 'number' }),
+    height: numeric('height', { mode: 'number' }),
   },
   (columns) => [
     uniqueIndex('media_migration_key_idx').on(columns.migrationKey),
-    index('media_updated_at_idx').on(columns.updatedAt),
-    index('media_created_at_idx').on(columns.createdAt),
-    uniqueIndex('media_filename_idx').on(columns.filename),
     index('media_sizes_thumbnail_sizes_thumbnail_filename_idx').on(
       columns.sizes_thumbnail_filename,
     ),
@@ -866,6 +865,9 @@ export const media = pgTable(
     index('media_sizes_xlarge_sizes_xlarge_filename_idx').on(columns.sizes_xlarge_filename),
     index('media_sizes_og_sizes_og_filename_idx').on(columns.sizes_og_filename),
     index('media_sizes_banner_sizes_banner_filename_idx').on(columns.sizes_banner_filename),
+    index('media_updated_at_idx').on(columns.updatedAt),
+    index('media_created_at_idx').on(columns.createdAt),
+    uniqueIndex('media_filename_idx').on(columns.filename),
   ],
 )
 

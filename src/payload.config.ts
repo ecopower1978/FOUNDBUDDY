@@ -18,6 +18,7 @@ import { defaultLexical } from '@/fields/defaultLexical'
 import { Company } from '@/globals/Company'
 import { CustomerService } from '@/globals/CustomerService'
 import { Homepage } from '@/globals/Homepage'
+import { mediaTasks } from '@/jobs/mediaTasks'
 import { translationTasks } from '@/jobs/translationTasks'
 import { plugins } from '@/plugins'
 
@@ -120,6 +121,6 @@ export default buildConfig({
         return req.headers.get('authorization') === `Bearer ${env.cronSecret}`
       },
     },
-    tasks: translationTasks,
+    tasks: [...translationTasks, ...mediaTasks],
   },
 })

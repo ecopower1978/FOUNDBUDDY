@@ -43,13 +43,24 @@ Schedule `pnpm storage:check` at least weekly. Alert on any missing object or
 size mismatch. The script checks every database media row against
 `media/{filename}` in object storage.
 
+New uploads keep the original object and queue the thumbnail, square, OG and
+banner derivatives on the `media` queue. The cron endpoint processes that queue
+before the translation queue, so the admin save is not blocked by Sharp or
+multiple object-storage writes. Existing objects are not overwritten.
+
+`S3_CLIENT_UPLOADS=false` is the safe default. After the provider CORS policy
+allows browser `PUT` requests from every `siteOrigins` domain, set it to `true`
+to let the browser upload the original directly to S3/R2 and reduce server
+bandwidth and request time further.
+
 Configure the provider to:
 
 - retain object versions and deny public listing/writes;
 - encrypt objects at rest;
 - abort incomplete multipart uploads after seven days;
 - retain noncurrent versions for the reviewed retention period;
-- allow browser `GET` and `HEAD` only from `SITE_URL`;
+- allow browser `GET`, `HEAD` and (when `S3_CLIENT_UPLOADS=true`) `PUT` only
+  from the configured site origins;
 - log administrative and destructive object operations.
 
 ## Email
@@ -104,10 +115,10 @@ target.
 7. Switch traffic only after smoke checks pass.
 8. Re-enable merchant writes after final reconciliation.
 
-Run translation workers through the protected `/api/jobs/run` endpoint with
-`Authorization: Bearer $CRON_SECRET`. Use a scheduler interval appropriate for
-the expected translation volume; the job endpoint runs the translation queue
-with controlled concurrency.
+Run media and translation workers through the protected `/api/jobs/run`
+endpoint with `Authorization: Bearer $CRON_SECRET`. Use a scheduler interval
+appropriate for the expected volume; the endpoint drains a small serial media
+batch before the translation queue on each invocation.
 
 ## Backup and restore
 

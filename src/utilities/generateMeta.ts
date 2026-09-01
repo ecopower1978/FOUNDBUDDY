@@ -9,7 +9,7 @@ import type { Config, Media, Post } from '@/payload-types'
 
 function getImageURL(image?: Config['db']['defaultIDType'] | Media | null) {
   if (!image || typeof image !== 'object') return undefined
-  const url = image.sizes?.og?.url || image.url
+  const url = image.sizes?.og?.url || image.sizes?.square?.url || image.url
   if (!url) return undefined
   return url.startsWith('http') ? url : new URL(url, env.siteURL).toString()
 }
