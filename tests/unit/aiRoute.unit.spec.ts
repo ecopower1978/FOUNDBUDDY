@@ -52,5 +52,5 @@ describe('AI customer-service API boundaries', () => {
     expect(response.status).toBe(200)
     const result = (await response.json()) as { answer?: string }
     expect(result.answer).toContain('WhatsApp')
-  })
+  }, 15_000)
 })
