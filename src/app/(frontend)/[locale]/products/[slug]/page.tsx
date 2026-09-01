@@ -122,6 +122,7 @@ function getImages(product: Product) {
     .map((image) => ({
       alt: image.alt || product.title,
       ogUrl: image.sizes?.og?.url || image.url,
+      thumbnailUrl: image.sizes?.thumbnail?.url || image.sizes?.square?.url || image.url,
       url: image.sizes?.square?.url || image.url,
     }))
 }

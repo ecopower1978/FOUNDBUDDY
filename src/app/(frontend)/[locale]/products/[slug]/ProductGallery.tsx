@@ -6,6 +6,7 @@ import { useState } from 'react'
 
 type ProductImage = {
   alt: string
+  thumbnailUrl?: string
   url: string
 }
 
@@ -49,7 +50,7 @@ export function ProductGallery({
               onClick={() => setActiveIndex(index)}
               type="button"
             >
-              <Image alt="" fill sizes="84px" src={image.url} />
+              <Image alt="" fill sizes="84px" src={image.thumbnailUrl || image.url} />
             </button>
           ))}
         </div>
