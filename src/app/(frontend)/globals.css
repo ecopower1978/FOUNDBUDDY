@@ -484,7 +484,8 @@ input:focus-visible,
 .hero-ad__slide {
   position: relative;
   min-width: 0;
-  height: clamp(480px, 34vw, 620px);
+  aspect-ratio: 8 / 3;
+  min-height: 420px;
   flex: 0 0 100%;
   overflow: hidden;
 }
@@ -881,7 +882,7 @@ input:focus-visible,
 .product-card__media {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1.45;
+  aspect-ratio: 1;
   background: #edf3ed;
 }
 .product-card__media img {
@@ -978,7 +979,7 @@ input:focus-visible,
 .product-detail__main-image {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1.2;
+  aspect-ratio: 1;
   border: 1px solid rgba(25, 78, 65, 0.12);
   border-radius: 18px;
   background: #e8f0e8;
@@ -1017,7 +1018,7 @@ input:focus-visible,
 .product-detail__thumbnails button {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 1.25;
+  aspect-ratio: 1;
   padding: 0;
   border: 2px solid transparent;
   border-radius: 8px;
@@ -1535,7 +1536,8 @@ input:focus-visible,
     padding: 67px 0;
   }
   .hero-ad__slide {
-    height: 520px;
+    aspect-ratio: 3 / 2;
+    min-height: 420px;
   }
   .hero-ad__content {
     width: min(680px, 78%);
@@ -1602,7 +1604,8 @@ input:focus-visible,
     border-radius: 15px;
   }
   .hero-ad__slide {
-    height: 500px;
+    aspect-ratio: 4 / 3;
+    min-height: 390px;
   }
   .hero-ad__shade {
     background: linear-gradient(0deg, rgba(7, 31, 25, 0.94) 0%, rgba(7, 31, 25, 0.6) 58%, rgba(7, 31, 25, 0.15) 100%);

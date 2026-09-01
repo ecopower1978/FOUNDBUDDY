@@ -119,7 +119,11 @@ function getImages(product: Product) {
       (image): image is Media & { url: string } =>
         typeof image.url === 'string' && image.url.length > 0,
     )
-    .map((image) => ({ alt: image.alt || product.title, url: image.url }))
+    .map((image) => ({
+      alt: image.alt || product.title,
+      ogUrl: image.sizes?.og?.url || image.url,
+      url: image.sizes?.square?.url || image.url,
+    }))
 }
 
 const queryProduct = cache(async ({ locale, slug }: { locale: SiteLocale; slug: string }) => {
@@ -338,7 +342,7 @@ export async function generateMetadata({ params }: Args): Promise<Metadata> {
     openGraph: {
       title: product.title,
       description: product.shortDescription,
-      images: images[0] ? [{ alt: images[0].alt, url: images[0].url }] : undefined,
+      images: images[0] ? [{ alt: images[0].alt, url: images[0].ogUrl }] : undefined,
       siteName: brandName,
       type: 'website',
       url: canonical,
@@ -347,7 +351,7 @@ export async function generateMetadata({ params }: Args): Promise<Metadata> {
     twitter: {
       card: 'summary_large_image',
       description: product.shortDescription,
-      images: images[0] ? [images[0].url] : undefined,
+      images: images[0] ? [images[0].ogUrl] : undefined,
       title: `${product.title} | ${brandName}`,
     },
   }

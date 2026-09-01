@@ -844,6 +844,12 @@ export const media = pgTable(
     sizes_og_mimeType: varchar('sizes_og_mime_type'),
     sizes_og_filesize: numeric('sizes_og_filesize', { mode: 'number' }),
     sizes_og_filename: varchar('sizes_og_filename'),
+    sizes_banner_url: varchar('sizes_banner_url'),
+    sizes_banner_width: numeric('sizes_banner_width', { mode: 'number' }),
+    sizes_banner_height: numeric('sizes_banner_height', { mode: 'number' }),
+    sizes_banner_mimeType: varchar('sizes_banner_mime_type'),
+    sizes_banner_filesize: numeric('sizes_banner_filesize', { mode: 'number' }),
+    sizes_banner_filename: varchar('sizes_banner_filename'),
   },
   (columns) => [
     uniqueIndex('media_migration_key_idx').on(columns.migrationKey),
@@ -859,6 +865,7 @@ export const media = pgTable(
     index('media_sizes_large_sizes_large_filename_idx').on(columns.sizes_large_filename),
     index('media_sizes_xlarge_sizes_xlarge_filename_idx').on(columns.sizes_xlarge_filename),
     index('media_sizes_og_sizes_og_filename_idx').on(columns.sizes_og_filename),
+    index('media_sizes_banner_sizes_banner_filename_idx').on(columns.sizes_banner_filename),
   ],
 )
 

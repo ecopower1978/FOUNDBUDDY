@@ -33,7 +33,11 @@ export const Media: CollectionConfig = {
     group: tr('Website content', '网站内容', 'Contenido del sitio'),
     defaultColumns: ['filename', 'updatedAt'],
     hideAPIURL: true,
-    description: tr('Previously uploaded images can be reused here.', '集中查看和重复使用已经上传过的图片。', 'Consulte y reutilice aquí las imágenes ya subidas.'),
+    description: tr(
+      'Product images are cropped to a square for the catalog. Banner images use the long banner variant on the homepage.',
+      '商品图片会裁剪为正方形用于商品页；首页横幅会自动使用长比例版本。上传后可点击“编辑图片”调整裁剪区域。',
+      'Las imágenes de producto se recortan en cuadrado para el catálogo y la portada usa automáticamente la versión panorámica. Después de subir una imagen puede editar el recorte.',
+    ),
   },
   fields: [
     {
@@ -96,7 +100,10 @@ export const Media: CollectionConfig = {
     // Upload to the public/media directory in Next.js making them publicly accessible even outside of Payload
     staticDir: path.resolve(dirname, '../../public/media'),
     adminThumbnail: 'thumbnail',
-    crop: false,
+    // Keep the original file and let editors adjust the crop from the admin UI.
+    // The generated `square` and `banner` variants keep product pages and the
+    // homepage banner on their own stable aspect ratios.
+    crop: true,
     constructorOptions: {
       limitInputPixels: 40_000_000,
     },
@@ -117,11 +124,14 @@ export const Media: CollectionConfig = {
       {
         name: 'thumbnail',
         width: 300,
+        height: 300,
+        crop: 'center',
       },
       {
         name: 'square',
-        width: 500,
-        height: 500,
+        width: 1200,
+        height: 1200,
+        crop: 'center',
       },
       {
         name: 'small',
@@ -143,6 +153,12 @@ export const Media: CollectionConfig = {
         name: 'og',
         width: 1200,
         height: 630,
+        crop: 'center',
+      },
+      {
+        name: 'banner',
+        width: 1920,
+        height: 720,
         crop: 'center',
       },
     ],

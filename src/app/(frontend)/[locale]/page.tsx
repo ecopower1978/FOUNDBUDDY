@@ -24,7 +24,14 @@ import {
 } from '@/data/publicContent'
 import type { Product } from '@/payload-types'
 
-type MediaValue = { alt?: string | null; url?: string | null }
+type MediaValue = {
+  alt?: string | null
+  url?: string | null
+  sizes?: {
+    square?: { url?: string | null }
+    banner?: { url?: string | null }
+  } | null
+}
 
 const isPublishedProduct = (value: number | Product): value is Product =>
   typeof value === 'object' && value !== null && value._status === 'published'
@@ -205,6 +212,13 @@ function getMedia(value: unknown): MediaValue | null {
   return value && typeof value === 'object' ? (value as MediaValue) : null
 }
 
+function getMediaVariant(media: MediaValue | null, variant: 'banner' | 'square') {
+  const variantURL = media?.sizes?.[variant]?.url
+  return typeof variantURL === 'string' && variantURL.length > 0
+    ? variantURL
+    : media?.url || null
+}
+
 export default async function HomePage({ params }: HomePageProps) {
   const locale = resolveLocale((await params).locale)
   const t = getMessages(locale)
@@ -245,14 +259,15 @@ export default async function HomePage({ params }: HomePageProps) {
             locale={locale}
             products={homepageProducts.map((product) => {
               const firstImage = Array.isArray(product.images) ? getMedia(product.images[0]) : null
+              const bannerURL = getMediaVariant(firstImage, 'banner')
               return {
                 id: product.id,
                 title: product.title || t.product,
                 category: product.category || t.product,
                 shortDescription: product.shortDescription || t.productsIntro,
                 slug: product.slug,
-                image: firstImage?.url
-                  ? { alt: firstImage.alt || product.title, url: firstImage.url }
+                image: bannerURL
+                  ? { alt: firstImage?.alt || product.title, url: bannerURL }
                   : demoProductImages[product.slug] || null,
               }
             })}
@@ -334,14 +349,15 @@ export default async function HomePage({ params }: HomePageProps) {
             locale={locale}
             products={products.map((product) => {
               const firstImage = Array.isArray(product.images) ? getMedia(product.images[0]) : null
+              const squareURL = getMediaVariant(firstImage, 'square')
               return {
                 id: product.id,
                 title: product.title,
                 category: product.category || t.product,
                 shortDescription: product.shortDescription,
                 slug: product.slug,
-                image: firstImage?.url
-                  ? { alt: firstImage.alt || product.title, url: firstImage.url }
+                image: squareURL
+                  ? { alt: firstImage?.alt || product.title, url: squareURL }
                   : demoProductImages[product.slug] || null,
               }
             })}
