@@ -19,6 +19,7 @@ const imageOrigins = [
 const connectOrigins = [
   "'self'",
   process.env.S3_PUBLIC_URL,
+  process.env.S3_ENDPOINT,
   process.env.AI_CHAT_API_URL,
   process.env.LIBRETRANSLATE_URL,
 ].filter(Boolean)
