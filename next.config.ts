@@ -16,10 +16,31 @@ const imageOrigins = [
   'https://images.unsplash.com',
 ].filter(Boolean) as string[]
 
+// The AWS SDK uses virtual-hosted-style URLs by default. For an S3-compatible
+// endpoint such as Cloudflare R2, a signed client upload therefore targets
+// `${bucket}.${endpointHost}`, not the endpoint origin itself. Both forms need
+// to be present in connect-src because the browser enforces CSP before the
+// storage service can respond with its CORS headers.
+function getS3VirtualHostOrigin() {
+  const endpoint = process.env.S3_ENDPOINT
+  const bucket = process.env.S3_BUCKET
+
+  if (!endpoint || !bucket || process.env.S3_FORCE_PATH_STYLE === 'true') return undefined
+
+  try {
+    const url = new URL(endpoint)
+    url.hostname = `${bucket}.${url.hostname}`
+    return url.origin
+  } catch {
+    return undefined
+  }
+}
+
 const connectOrigins = [
   "'self'",
   process.env.S3_PUBLIC_URL,
   process.env.S3_ENDPOINT,
+  getS3VirtualHostOrigin(),
   process.env.AI_CHAT_API_URL,
   process.env.LIBRETRANSLATE_URL,
 ].filter(Boolean)
