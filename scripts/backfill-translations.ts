@@ -59,3 +59,4 @@ async function drainTranslations(payload: Payload, req: PayloadRequest) {
 const drained = await drainTranslations(payload, req)
 
 console.log(JSON.stringify({ backfill, drained, ok: true }, null, 2))
+await payload.destroy()
