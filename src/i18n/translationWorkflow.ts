@@ -6,17 +6,12 @@ import type {
   PayloadRequest,
 } from 'payload'
 
-import { isSiteLocale, locales, type SiteLocale } from './config'
+import { isSiteLocale, type SiteLocale } from './config'
 import { isEditorOrOwner } from '@/access/roles'
 
 export type TranslationMode = 'auto' | 'manual'
 export type TranslationTargetLocale = Exclude<SiteLocale, 'zh-CN'>
-export type TranslationState =
-  | 'complete'
-  | 'failed'
-  | 'partial'
-  | 'pending'
-  | 'translating'
+export type TranslationState = 'complete' | 'failed' | 'partial' | 'pending' | 'translating'
 
 export type TranslationStatus = {
   error?: string | null
@@ -28,6 +23,69 @@ export type TranslationStatus = {
 }
 
 export const TRANSLATION_CONTEXT_KEY = 'translationWorkflow'
+
+/**
+ * Translation is intentionally drained in this order. English is the primary
+ * business language, followed by the most broadly useful trade languages.
+ * Traditional Chinese is last because it is converted locally with OpenCC.
+ */
+export const translationLocaleOrder = [
+  'en',
+  'de',
+  'es',
+  'pt',
+  'ar',
+  'he',
+  'ko',
+  'zh-TW',
+] as const satisfies readonly TranslationTargetLocale[]
+
+/**
+ * The unscoped queue name is retained for jobs created before the language
+ * queues were introduced. Those legacy jobs default to English in the task
+ * handler and then continue through the same ordered pipeline.
+ */
+export const TRANSLATION_QUEUE = 'translations'
+
+export function isTranslationTargetLocale(value: unknown): value is TranslationTargetLocale {
+  return translationLocaleOrder.includes(value as TranslationTargetLocale)
+}
+
+export function getTranslationLocale(value: unknown): TranslationTargetLocale {
+  return isTranslationTargetLocale(value) ? value : translationLocaleOrder[0]
+}
+
+export function getTranslationQueue(value: unknown): string {
+  return `${TRANSLATION_QUEUE}:${getTranslationLocale(value)}`
+}
+
+export function getTranslationQueueOrder(): string[] {
+  return [TRANSLATION_QUEUE, ...translationLocaleOrder.map((locale) => getTranslationQueue(locale))]
+}
+
+/**
+ * Returns the first locale that still needs automatic translation. A manual
+ * locale is considered complete for queue ordering, while a failed locale is
+ * deliberately kept in front of later locales so retries preserve priority.
+ */
+export function getNextTranslationLocale(
+  current: TranslationStatus[] | null | undefined,
+  sourceHash: string,
+  afterLocale?: TranslationTargetLocale,
+): TranslationTargetLocale | null {
+  const statuses = new Map((current || []).map((item) => [item.locale, item]))
+  const startAt = afterLocale ? Math.max(translationLocaleOrder.indexOf(afterLocale) + 1, 0) : 0
+
+  return (
+    translationLocaleOrder.slice(startAt).find((locale) => {
+      const status = statuses.get(locale)
+      return (
+        status?.mode !== 'manual' &&
+        !(status?.status === 'complete' && status.sourceHash === sourceHash)
+      )
+    }) || null
+  )
+}
 
 type TranslationHookDocument = Record<string, unknown> & {
   contact?: { address?: unknown } | null
@@ -59,8 +117,7 @@ export const translationFields: Field[] = [
       components: {
         Cell: '@/components/TranslationStatusCell',
       },
-      description:
-        '保存中文原文后系统会在后台翻译。失败语言可从编辑页右侧重新提交。',
+      description: '保存中文原文后系统会在后台翻译。失败语言可从编辑页右侧重新提交。',
       position: 'sidebar',
       readOnly: true,
     },
@@ -70,9 +127,7 @@ export const translationFields: Field[] = [
         name: 'locale',
         type: 'select',
         required: true,
-        options: locales
-          .filter((locale) => locale !== 'zh-CN')
-          .map((locale) => ({ label: locale, value: locale })),
+        options: translationLocaleOrder.map((locale) => ({ label: locale, value: locale })),
       },
       {
         name: 'status',
@@ -126,32 +181,27 @@ export function buildTranslationStatuses(
   sourceHash: string,
 ): TranslationStatus[] {
   const byLocale = new Map((current || []).map((item) => [item.locale, item]))
-  return locales
-    .filter((locale) => locale !== 'zh-CN')
-    .map((locale) => {
-      const previous = byLocale.get(locale)
-      if (previous?.mode === 'manual') {
-        return {
-          ...previous,
-          error:
-            previous.sourceHash === sourceHash
-              ? previous.error
-              : '原文已更新，手工译文需要复核。',
-          sourceHash,
-          status:
-            previous.sourceHash === sourceHash ? previous.status : ('partial' as const),
-          updatedAt: new Date().toISOString(),
-        }
-      }
+  return translationLocaleOrder.map((locale) => {
+    const previous = byLocale.get(locale)
+    if (previous?.mode === 'manual') {
       return {
-        error: null,
-        locale,
-        mode: 'auto' as const,
+        ...previous,
+        error:
+          previous.sourceHash === sourceHash ? previous.error : '原文已更新，手工译文需要复核。',
         sourceHash,
-        status: 'pending' as const,
+        status: previous.sourceHash === sourceHash ? previous.status : ('partial' as const),
         updatedAt: new Date().toISOString(),
       }
-    })
+    }
+    return {
+      error: null,
+      locale,
+      mode: 'auto' as const,
+      sourceHash,
+      status: 'pending' as const,
+      updatedAt: new Date().toISOString(),
+    }
+  })
 }
 
 export async function queueTranslationTask(
@@ -159,10 +209,11 @@ export async function queueTranslationTask(
   task: 'translateCompany' | 'translatePost' | 'translateProduct',
   input: Record<string, unknown>,
 ) {
+  const locale = getTranslationLocale(input.locale)
   await (req.payload.jobs.queue as (args: Record<string, unknown>) => Promise<unknown>)({
-    input,
+    input: { ...input, locale },
     overrideAccess: true,
-    queue: 'translations',
+    queue: getTranslationQueue(locale),
     req,
     task,
   })
@@ -279,8 +330,6 @@ export function isLocaleTranslationComplete(
   const statuses = Array.isArray(doc.translationStatus)
     ? (doc.translationStatus as TranslationStatus[])
     : []
-  const item = statuses.find(
-    (status: TranslationStatus) => status.locale === locale,
-  )
+  const item = statuses.find((status: TranslationStatus) => status.locale === locale)
   return item?.status === 'complete'
 }

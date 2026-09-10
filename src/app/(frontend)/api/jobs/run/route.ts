@@ -1,13 +1,38 @@
 import configPromise from '@payload-config'
 import { NextResponse } from 'next/server'
-import { createLocalReq, getPayload } from 'payload'
+import { createLocalReq, getPayload, type Payload, type PayloadRequest } from 'payload'
 
 import { env } from '@/config/env'
 import { queueMissingTranslationJobs } from '@/jobs/translationBackfill'
+import { getTranslationQueueOrder } from '@/i18n/translationWorkflow'
 import { sendSystemAlert } from '@/utilities/systemAlert'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
+
+const TRANSLATION_JOB_BATCH_SIZE = 1
+
+async function runTranslationQueue(payload: Payload, req: PayloadRequest) {
+  let lastResult: Awaited<ReturnType<typeof payload.jobs.run>> = {
+    noJobsRemaining: true,
+    remainingJobsFromQueried: 0,
+  }
+
+  for (const queue of getTranslationQueueOrder()) {
+    const result = await payload.jobs.run({
+      limit: TRANSLATION_JOB_BATCH_SIZE,
+      overrideAccess: true,
+      queue,
+      req,
+      sequential: true,
+      silent: true,
+    })
+    lastResult = result
+    if (Object.keys(result.jobStatus || {}).length > 0) return result
+  }
+
+  return lastResult
+}
 
 async function runJobs(request: Request) {
   if (request.headers.get('authorization') !== `Bearer ${env.cronSecret}`) {
@@ -20,7 +45,7 @@ async function runJobs(request: Request) {
     const backfill = await queueMissingTranslationJobs(payload, req)
     // Image derivatives are deliberately processed in a small, serial batch
     // so a Vercel invocation cannot saturate the Sharp worker pool. Translation
-    // jobs keep their existing queue and behavior.
+    // jobs are drained from one language queue at a time below.
     const media = await payload.jobs.run({
       limit: 5,
       overrideAccess: true,
@@ -29,14 +54,7 @@ async function runJobs(request: Request) {
       sequential: true,
       silent: true,
     })
-    const translations = await payload.jobs.run({
-      limit: 10,
-      overrideAccess: true,
-      queue: 'translations',
-      req,
-      sequential: true,
-      silent: true,
-    })
+    const translations = await runTranslationQueue(payload, req)
 
     // Keep `result` compatible with the previous translation-only response;
     // expose media stats alongside it for observability.

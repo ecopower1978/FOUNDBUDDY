@@ -5,14 +5,12 @@ import {
   contentHash,
   queueTranslationTask,
   TRANSLATION_CONTEXT_KEY,
+  translationLocaleOrder,
   type TranslationStatus,
-  type TranslationTargetLocale,
 } from '@/i18n/translationWorkflow'
-import { locales, type SiteLocale } from '@/i18n/config'
+import { type SiteLocale } from '@/i18n/config'
 
-const targetLocales = locales.filter(
-  (locale): locale is TranslationTargetLocale => locale !== 'zh-CN',
-)
+const targetLocales = translationLocaleOrder
 
 type TranslationDocument = {
   id: number | string
@@ -80,10 +78,7 @@ function mergeExistingLocalizedContent(
   )
 }
 
-function needsMetadataBackfill(
-  doc: TranslationDocument,
-  sourceHash: string,
-): boolean {
+function needsMetadataBackfill(doc: TranslationDocument, sourceHash: string): boolean {
   const statuses = Array.isArray(doc.translationStatus) ? doc.translationStatus : []
   return (
     doc.translationSourceHash !== sourceHash ||

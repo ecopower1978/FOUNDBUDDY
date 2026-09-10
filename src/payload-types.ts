@@ -193,7 +193,7 @@ export interface Product {
    */
   translationStatus?:
     | {
-        locale: 'en' | 'es' | 'ar' | 'de' | 'he' | 'ko' | 'pt' | 'zh-TW';
+        locale: 'en' | 'de' | 'es' | 'pt' | 'ar' | 'he' | 'ko' | 'zh-TW';
         status: 'pending' | 'translating' | 'complete' | 'partial' | 'failed';
         mode: 'auto' | 'manual';
         sourceHash?: string | null;
@@ -363,7 +363,7 @@ export interface Post {
    */
   translationStatus?:
     | {
-        locale: 'en' | 'es' | 'ar' | 'de' | 'he' | 'ko' | 'pt' | 'zh-TW';
+        locale: 'en' | 'de' | 'es' | 'pt' | 'ar' | 'he' | 'ko' | 'zh-TW';
         status: 'pending' | 'translating' | 'complete' | 'partial' | 'failed';
         mode: 'auto' | 'manual';
         sourceHash?: string | null;
@@ -595,6 +595,10 @@ export interface PayloadJob {
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
+  /**
+   * Used for concurrency control. Jobs with the same key are subject to exclusive/supersedes rules.
+   */
+  concurrencyKey?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -962,6 +966,7 @@ export interface PayloadJobsSelect<T extends boolean = true> {
   queue?: T;
   waitUntil?: T;
   processing?: T;
+  concurrencyKey?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1029,7 +1034,7 @@ export interface Company {
    */
   translationStatus?:
     | {
-        locale: 'en' | 'es' | 'ar' | 'de' | 'he' | 'ko' | 'pt' | 'zh-TW';
+        locale: 'en' | 'de' | 'es' | 'pt' | 'ar' | 'he' | 'ko' | 'zh-TW';
         status: 'pending' | 'translating' | 'complete' | 'partial' | 'failed';
         mode: 'auto' | 'manual';
         sourceHash?: string | null;
@@ -1164,6 +1169,7 @@ export interface CollectionsWidget {
 export interface TaskTranslateProduct {
   input: {
     documentId?: string | null;
+    locale?: ('en' | 'de' | 'es' | 'pt' | 'ar' | 'he' | 'ko' | 'zh-TW') | null;
     sourceHash: string;
   };
   output: {
@@ -1179,6 +1185,7 @@ export interface TaskTranslateProduct {
 export interface TaskTranslatePost {
   input: {
     documentId?: string | null;
+    locale?: ('en' | 'de' | 'es' | 'pt' | 'ar' | 'he' | 'ko' | 'zh-TW') | null;
     sourceHash: string;
   };
   output: {
@@ -1194,6 +1201,7 @@ export interface TaskTranslatePost {
 export interface TaskTranslateCompany {
   input: {
     documentId?: string | null;
+    locale?: ('en' | 'de' | 'es' | 'pt' | 'ar' | 'he' | 'ko' | 'zh-TW') | null;
     sourceHash: string;
   };
   output: {

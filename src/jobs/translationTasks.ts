@@ -1,13 +1,19 @@
-import type { Payload, TaskConfig } from 'payload'
+import type { Payload, PayloadRequest, TaskConfig } from 'payload'
 
-import { locales, type SiteLocale } from '@/i18n/config'
+import { type SiteLocale } from '@/i18n/config'
 import { translateLexical, translateText } from '@/i18n/autoTranslate'
 import {
+  getNextTranslationLocale,
+  getTranslationLocale,
+  queueTranslationTask,
   TRANSLATION_CONTEXT_KEY,
+  translationLocaleOrder,
   type TranslationStatus,
+  type TranslationTargetLocale,
 } from '@/i18n/translationWorkflow'
 
-type TaskInput = { documentId?: string; sourceHash?: string }
+type TranslationTaskSlug = 'translateCompany' | 'translatePost' | 'translateProduct'
+type TaskInput = { documentId?: string; locale?: string; sourceHash?: string }
 type CollectionTranslationSource = {
   category?: string | null
   content?: unknown
@@ -41,6 +47,11 @@ type CompanyTranslationSource = {
 
 const inputSchema: TaskConfig['inputSchema'] = [
   { name: 'documentId', type: 'text' },
+  {
+    name: 'locale',
+    type: 'select',
+    options: translationLocaleOrder.map((locale) => ({ label: locale, value: locale })),
+  },
   { name: 'sourceHash', type: 'text', required: true },
 ]
 
@@ -62,6 +73,55 @@ function updateStatus(
   )
 }
 
+/**
+ * Serialize every upstream translation request within one language task.
+ * Some rich-text and specification fields are traversed with Promise.all for
+ * data-shape convenience; this queue keeps the actual HTTP calls one at a
+ * time so those traversals cannot burst the LibreTranslate process.
+ */
+function createTranslationQueue(target: TranslationTargetLocale) {
+  let tail: Promise<void> = Promise.resolve()
+  let failure: unknown
+
+  function translate(value: string): Promise<string>
+  function translate(value?: string | null): Promise<string | null | undefined>
+  function translate(value?: string | null): Promise<string | null | undefined> {
+    if (!value?.trim()) return Promise.resolve(value)
+
+    const result = tail.then(() => {
+      if (failure) throw failure
+      return translateText(value, 'zh-CN', target)
+    })
+    tail = result.then(
+      () => undefined,
+      (error) => {
+        failure = error
+        return undefined
+      },
+    )
+    return result
+  }
+
+  return translate
+}
+
+async function queueNextLocale(
+  req: PayloadRequest,
+  task: TranslationTaskSlug,
+  input: { documentId?: string; sourceHash: string },
+  statuses: TranslationStatus[],
+  currentLocale: TranslationTargetLocale,
+) {
+  const nextLocale = getNextTranslationLocale(statuses, input.sourceHash, currentLocale)
+  if (!nextLocale) return null
+
+  await queueTranslationTask(req, task, {
+    ...input,
+    locale: nextLocale,
+  })
+  return nextLocale
+}
+
 async function updateCollectionStatuses(
   payload: Payload,
   collection: 'posts' | 'products',
@@ -79,11 +139,15 @@ async function updateCollectionStatuses(
 }
 
 async function translateCollection(
-  payload: Payload,
+  req: PayloadRequest,
   collection: 'posts' | 'products',
   input: TaskInput,
 ) {
+  const payload = req.payload
   const id = input.documentId || ''
+  const sourceHash = String(input.sourceHash || '')
+  const locale = getTranslationLocale(input.locale)
+  const task: TranslationTaskSlug = collection === 'products' ? 'translateProduct' : 'translatePost'
   const source = (await payload.findByID({
     collection,
     id,
@@ -92,165 +156,155 @@ async function translateCollection(
     overrideAccess: true,
   })) as CollectionTranslationSource
 
-  if (source.translationSourceHash !== input.sourceHash) {
+  if (source.translationSourceHash !== sourceHash) {
     return { failed: 0, stale: true, translated: 0 }
   }
 
   let statuses = (source.translationStatus || []) as TranslationStatus[]
-  let translated = 0
-  let failed = 0
-
-  for (const locale of locales.filter((item) => item !== 'zh-CN')) {
-    const status = statuses.find((item) => item.locale === locale)
-    if (status?.mode === 'manual') continue
-    if (status?.status === 'complete' && status.sourceHash === input.sourceHash) continue
-    statuses = updateStatus(statuses, locale, { error: null, status: 'translating' })
-    await updateCollectionStatuses(payload, collection, source.id, statuses)
-
-    try {
-      const data =
-        collection === 'products'
-          ? {
-              title: await translateText(source.title, 'zh-CN', locale),
-              shortDescription: await translateText(
-                source.shortDescription,
-                'zh-CN',
-                locale,
-              ),
-              category: source.category
-                ? await translateText(source.category, 'zh-CN', locale)
-                : source.category,
-              description: source.description
-                ? await translateText(source.description, 'zh-CN', locale)
-                : source.description,
-              specifications: await Promise.all(
-                (source.specifications || []).map(
-                  async (item: Record<string, unknown>) => ({
-                    ...item,
-                    name: item.name
-                      ? await translateText(String(item.name), 'zh-CN', locale)
-                      : item.name,
-                    value: item.value
-                      ? await translateText(String(item.value), 'zh-CN', locale)
-                      : item.value,
-                  }),
-                ),
-              ),
-            }
-          : {
-              title: await translateText(source.title, 'zh-CN', locale),
-              excerpt: source.excerpt
-                ? await translateText(source.excerpt, 'zh-CN', locale)
-                : source.excerpt,
-              content: await translateLexical(source.content, (value) =>
-                value ? translateText(value, 'zh-CN', locale) : Promise.resolve(value),
-              ),
-              meta: {
-                ...source.meta,
-                title: source.meta?.title
-                  ? await translateText(source.meta.title, 'zh-CN', locale)
-                  : source.meta?.title,
-                description: source.meta?.description
-                  ? await translateText(source.meta.description, 'zh-CN', locale)
-                  : source.meta?.description,
-              },
-            }
-
-      await payload.update({
-        collection,
-        id: source.id,
-        data,
-        locale,
-        overrideAccess: true,
-        context: { [TRANSLATION_CONTEXT_KEY]: true, translationLocale: locale },
+  const firstPendingLocale = getNextTranslationLocale(statuses, sourceHash)
+  if (firstPendingLocale !== locale) {
+    if (firstPendingLocale) {
+      await queueTranslationTask(req, task, {
+        documentId: String(source.id),
+        locale: firstPendingLocale,
+        sourceHash,
       })
-      statuses = updateStatus(statuses, locale, {
-        error: null,
-        sourceHash: input.sourceHash,
-        status: 'complete',
-      })
-      translated += 1
-    } catch (error) {
-      statuses = updateStatus(statuses, locale, {
-        error: error instanceof Error ? error.message.slice(0, 500) : '未知翻译错误',
-        status: 'failed',
-      })
-      failed += 1
     }
-    await updateCollectionStatuses(payload, collection, source.id, statuses)
+    return { failed: 0, stale: false, translated: 0 }
   }
 
-  if (failed > 0) throw new Error(`${failed} locale translations failed`)
-  return { failed, stale: false, translated }
+  statuses = updateStatus(statuses, locale, { error: null, status: 'translating' })
+  await updateCollectionStatuses(payload, collection, source.id, statuses)
+
+  try {
+    const translate = createTranslationQueue(locale)
+    const data =
+      collection === 'products'
+        ? {
+            title: await translate(source.title),
+            shortDescription: await translate(source.shortDescription),
+            category: source.category ? await translate(source.category) : source.category,
+            description: source.description
+              ? await translate(source.description)
+              : source.description,
+            specifications: await Promise.all(
+              (source.specifications || []).map(async (item: Record<string, unknown>) => ({
+                ...item,
+                name: item.name ? await translate(String(item.name)) : item.name,
+                value: item.value ? await translate(String(item.value)) : item.value,
+              })),
+            ),
+          }
+        : {
+            title: await translate(source.title),
+            excerpt: source.excerpt ? await translate(source.excerpt) : source.excerpt,
+            content: await translateLexical(source.content, (value) => translate(value)),
+            meta: {
+              ...source.meta,
+              title: source.meta?.title ? await translate(source.meta.title) : source.meta?.title,
+              description: source.meta?.description
+                ? await translate(source.meta.description)
+                : source.meta?.description,
+            },
+          }
+
+    await payload.update({
+      collection,
+      id: source.id,
+      data,
+      locale,
+      overrideAccess: true,
+      context: { [TRANSLATION_CONTEXT_KEY]: true, translationLocale: locale },
+    })
+    statuses = updateStatus(statuses, locale, {
+      error: null,
+      sourceHash,
+      status: 'complete',
+    })
+  } catch (error) {
+    statuses = updateStatus(statuses, locale, {
+      error: error instanceof Error ? error.message.slice(0, 500) : '未知翻译错误',
+      status: 'failed',
+    })
+    await updateCollectionStatuses(payload, collection, source.id, statuses)
+    throw error
+  }
+
+  await updateCollectionStatuses(payload, collection, source.id, statuses)
+  await queueNextLocale(req, task, { documentId: String(source.id), sourceHash }, statuses, locale)
+  return { failed: 0, stale: false, translated: 1 }
 }
 
-async function translateCompany(payload: Payload, input: TaskInput) {
+async function translateCompany(req: PayloadRequest, input: TaskInput) {
+  const payload = req.payload
+  const sourceHash = String(input.sourceHash || '')
+  const locale = getTranslationLocale(input.locale)
   const source = (await payload.findGlobal({
     slug: 'company',
     locale: 'zh-CN',
     fallbackLocale: false,
     overrideAccess: true,
   })) as CompanyTranslationSource
-  if (source.translationSourceHash !== input.sourceHash) {
+  if (source.translationSourceHash !== sourceHash) {
     return { failed: 0, stale: true, translated: 0 }
   }
 
   let statuses = (source.translationStatus || []) as TranslationStatus[]
-  let translated = 0
-  let failed = 0
-
-  for (const locale of locales.filter((item) => item !== 'zh-CN')) {
-    const status = statuses.find((item) => item.locale === locale)
-    if (status?.mode === 'manual') continue
-    if (status?.status === 'complete' && status.sourceHash === input.sourceHash) continue
-    statuses = updateStatus(statuses, locale, { error: null, status: 'translating' })
-    await payload.updateGlobal({
-      slug: 'company',
-      data: { translationStatus: statuses },
-      locale: 'zh-CN',
-      overrideAccess: true,
-      context: { [TRANSLATION_CONTEXT_KEY]: true },
-    })
-
-    try {
-      const translate = (value?: string | null) =>
-        value ? translateText(value, 'zh-CN', locale) : Promise.resolve(value)
-      await payload.updateGlobal({
-        slug: 'company',
-        data: {
-          heroTitle: (await translate(source.heroTitle)) ?? undefined,
-          heroDescription: (await translate(source.heroDescription)) ?? undefined,
-          aboutTitle: await translate(source.aboutTitle),
-          aboutDescription: await translate(source.aboutDescription),
-          highlights: await Promise.all(
-            (source.highlights || []).map(async (item: Record<string, unknown>) => ({
-              ...item,
-              title: (await translate(item.title as string)) ?? undefined,
-              description: (await translate(item.description as string)) ?? undefined,
-            })),
-          ),
-          contact: {
-            ...source.contact,
-            address: await translate(source.contact?.address),
-          },
-        },
-        locale,
-        overrideAccess: true,
-        context: { [TRANSLATION_CONTEXT_KEY]: true, translationLocale: locale },
+  const firstPendingLocale = getNextTranslationLocale(statuses, sourceHash)
+  if (firstPendingLocale !== locale) {
+    if (firstPendingLocale) {
+      await queueTranslationTask(req, 'translateCompany', {
+        locale: firstPendingLocale,
+        sourceHash,
       })
-      statuses = updateStatus(statuses, locale, {
-        error: null,
-        sourceHash: input.sourceHash,
-        status: 'complete',
-      })
-      translated += 1
-    } catch (error) {
-      statuses = updateStatus(statuses, locale, {
-        error: error instanceof Error ? error.message.slice(0, 500) : '未知翻译错误',
-        status: 'failed',
-      })
-      failed += 1
     }
+    return { failed: 0, stale: false, translated: 0 }
+  }
+
+  statuses = updateStatus(statuses, locale, { error: null, status: 'translating' })
+  await payload.updateGlobal({
+    slug: 'company',
+    data: { translationStatus: statuses },
+    locale: 'zh-CN',
+    overrideAccess: true,
+    context: { [TRANSLATION_CONTEXT_KEY]: true },
+  })
+
+  try {
+    const translate = createTranslationQueue(locale)
+    await payload.updateGlobal({
+      slug: 'company',
+      data: {
+        heroTitle: (await translate(source.heroTitle)) ?? undefined,
+        heroDescription: (await translate(source.heroDescription)) ?? undefined,
+        aboutTitle: await translate(source.aboutTitle),
+        aboutDescription: await translate(source.aboutDescription),
+        highlights: await Promise.all(
+          (source.highlights || []).map(async (item: Record<string, unknown>) => ({
+            ...item,
+            title: (await translate(item.title as string)) ?? undefined,
+            description: (await translate(item.description as string)) ?? undefined,
+          })),
+        ),
+        contact: {
+          ...source.contact,
+          address: await translate(source.contact?.address),
+        },
+      },
+      locale,
+      overrideAccess: true,
+      context: { [TRANSLATION_CONTEXT_KEY]: true, translationLocale: locale },
+    })
+    statuses = updateStatus(statuses, locale, {
+      error: null,
+      sourceHash,
+      status: 'complete',
+    })
+  } catch (error) {
+    statuses = updateStatus(statuses, locale, {
+      error: error instanceof Error ? error.message.slice(0, 500) : '未知翻译错误',
+      status: 'failed',
+    })
     await payload.updateGlobal({
       slug: 'company',
       data: { translationStatus: statuses },
@@ -258,12 +312,26 @@ async function translateCompany(payload: Payload, input: TaskInput) {
       overrideAccess: true,
       context: { [TRANSLATION_CONTEXT_KEY]: true },
     })
+    throw error
   }
-  if (failed > 0) throw new Error(`${failed} company locale translations failed`)
-  return { failed, stale: false, translated }
+
+  await payload.updateGlobal({
+    slug: 'company',
+    data: { translationStatus: statuses },
+    locale: 'zh-CN',
+    overrideAccess: true,
+    context: { [TRANSLATION_CONTEXT_KEY]: true },
+  })
+  await queueNextLocale(req, 'translateCompany', { sourceHash }, statuses, locale)
+  return { failed: 0, stale: false, translated: 1 }
 }
 
 const taskBase = {
+  concurrency: {
+    // One global key makes every translation task share a single worker slot,
+    // even when two cron invocations overlap or multiple app instances run.
+    key: () => 'translation-global',
+  },
   inputSchema,
   outputSchema,
   retries: {
@@ -278,7 +346,7 @@ export const translationTasks: TaskConfig[] = [
     slug: 'translateProduct',
     label: '翻译商品',
     handler: async ({ input, req }) => ({
-      output: await translateCollection(req.payload, 'products', input as TaskInput),
+      output: await translateCollection(req, 'products', input as TaskInput),
     }),
   },
   {
@@ -286,7 +354,7 @@ export const translationTasks: TaskConfig[] = [
     slug: 'translatePost',
     label: '翻译文章',
     handler: async ({ input, req }) => ({
-      output: await translateCollection(req.payload, 'posts', input as TaskInput),
+      output: await translateCollection(req, 'posts', input as TaskInput),
     }),
   },
   {
@@ -294,7 +362,7 @@ export const translationTasks: TaskConfig[] = [
     slug: 'translateCompany',
     label: '翻译公司资料',
     handler: async ({ input, req }) => ({
-      output: await translateCompany(req.payload, input as TaskInput),
+      output: await translateCompany(req, input as TaskInput),
     }),
   },
 ]

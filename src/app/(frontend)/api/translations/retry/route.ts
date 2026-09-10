@@ -6,6 +6,9 @@ import { z } from 'zod'
 
 import { isEditorOrOwner } from '@/access/roles'
 import {
+  getNextTranslationLocale,
+  getTranslationLocale,
+  queueTranslationTask,
   TRANSLATION_CONTEXT_KEY,
   type TranslationStatus,
 } from '@/i18n/translationWorkflow'
@@ -15,9 +18,7 @@ const schema = z
   .object({
     collection: z.enum(['products', 'posts', 'company']),
     id: z.coerce.number().int().positive().optional(),
-    unlockLocale: z
-      .enum(['en', 'es', 'ar', 'de', 'he', 'ko', 'pt', 'zh-TW'])
-      .optional(),
+    unlockLocale: z.enum(['en', 'es', 'ar', 'de', 'he', 'ko', 'pt', 'zh-TW']).optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -30,10 +31,7 @@ const schema = z
     }
   })
 
-function resetFailed(
-  statuses: TranslationStatus[] | null | undefined,
-  unlockLocale?: string,
-) {
+function resetFailed(statuses: TranslationStatus[] | null | undefined, unlockLocale?: string) {
   return (statuses || []).map((item) =>
     item.locale === unlockLocale
       ? {
@@ -44,8 +42,8 @@ function resetFailed(
           updatedAt: new Date().toISOString(),
         }
       : item.mode !== 'manual' && (item.status === 'failed' || item.status === 'partial')
-      ? { ...item, error: null, status: 'pending' as const, updatedAt: new Date().toISOString() }
-      : item,
+        ? { ...item, error: null, status: 'pending' as const, updatedAt: new Date().toISOString() }
+        : item,
   )
 }
 
@@ -69,6 +67,7 @@ export async function POST(request: Request) {
   const context = { [TRANSLATION_CONTEXT_KEY]: true }
   let sourceHash = ''
   let task: 'translateCompany' | 'translatePost' | 'translateProduct'
+  let queuedStatuses: TranslationStatus[] = []
 
   if (collection === 'company') {
     const doc = await payload.findGlobal({
@@ -79,14 +78,12 @@ export async function POST(request: Request) {
     })
     sourceHash = doc.translationSourceHash || ''
     task = 'translateCompany'
+    queuedStatuses = resetFailed(doc.translationStatus as TranslationStatus[], unlockLocale)
     await payload.updateGlobal({
       slug: 'company',
       context,
       data: {
-        translationStatus: resetFailed(
-          doc.translationStatus as TranslationStatus[],
-          unlockLocale,
-        ),
+        translationStatus: queuedStatuses,
       },
       locale: 'zh-CN',
       overrideAccess: true,
@@ -102,14 +99,12 @@ export async function POST(request: Request) {
     })
     sourceHash = doc.translationSourceHash || ''
     task = 'translateProduct'
+    queuedStatuses = resetFailed(doc.translationStatus as TranslationStatus[], unlockLocale)
     await payload.update({
       collection: 'products',
       context,
       data: {
-        translationStatus: resetFailed(
-          doc.translationStatus as TranslationStatus[],
-          unlockLocale,
-        ),
+        translationStatus: queuedStatuses,
       },
       id: id!,
       locale: 'zh-CN',
@@ -126,14 +121,12 @@ export async function POST(request: Request) {
     })
     sourceHash = doc.translationSourceHash || ''
     task = 'translatePost'
+    queuedStatuses = resetFailed(doc.translationStatus as TranslationStatus[], unlockLocale)
     await payload.update({
       collection: 'posts',
       context,
       data: {
-        translationStatus: resetFailed(
-          doc.translationStatus as TranslationStatus[],
-          unlockLocale,
-        ),
+        translationStatus: queuedStatuses,
       },
       id: id!,
       locale: 'zh-CN',
@@ -145,12 +138,13 @@ export async function POST(request: Request) {
   if (!sourceHash) {
     return NextResponse.json({ error: '请先保存简体中文原文。' }, { status: 409 })
   }
-  await payload.jobs.queue({
-    input: collection === 'company' ? { sourceHash } : { documentId: String(id), sourceHash },
-    overrideAccess: true,
-    queue: 'translations',
-    req,
-    task,
+  const queueLocale = getTranslationLocale(
+    unlockLocale || getNextTranslationLocale(queuedStatuses, sourceHash),
+  )
+  await queueTranslationTask(req, task, {
+    ...(collection === 'company' ? {} : { documentId: String(id) }),
+    locale: queueLocale,
+    sourceHash,
   })
   await writeAuditEvent(req, {
     action: 'translation.retry',

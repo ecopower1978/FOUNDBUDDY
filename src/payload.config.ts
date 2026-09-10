@@ -121,6 +121,7 @@ export default buildConfig({
         return req.headers.get('authorization') === `Bearer ${env.cronSecret}`
       },
     },
+    enableConcurrencyControl: true,
     tasks: [...translationTasks, ...mediaTasks],
   },
 })
