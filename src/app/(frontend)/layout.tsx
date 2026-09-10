@@ -7,6 +7,7 @@ import React from 'react'
 
 import { env } from '@/config/env'
 import { isSiteLocale, localeMeta } from '@/i18n/config'
+import { getSiteLocale } from '@/i18n/server'
 import { Providers } from '@/providers'
 import { InitTheme } from '@/providers/Theme/InitTheme'
 
@@ -21,7 +22,11 @@ export default async function RootLayout({
   params: Promise<{ locale?: string }>
 }) {
   const routeLocale = (await params).locale
-  const locale = isSiteLocale(routeLocale) ? routeLocale : 'en'
+  // The locale segment is a child of this route-group layout, so Next does not
+  // pass it through `params` here. The proxy supplies x-site-locale for every
+  // localized request; getSiteLocale reads that header before cookie/browser
+  // preferences and keeps the document root in sync with the page.
+  const locale = isSiteLocale(routeLocale) ? routeLocale : await getSiteLocale()
 
   return (
     <html

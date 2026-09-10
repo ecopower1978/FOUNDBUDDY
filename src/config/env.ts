@@ -22,6 +22,9 @@ const productionSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_PUBLIC_URL: z.string().url().startsWith('https://'),
   S3_CLIENT_UPLOADS: z.enum(['true', 'false']).optional(),
+  // Public pages advertise nine locales; production must have the upstream
+  // service configured so queued content translations cannot silently fail.
+  LIBRETRANSLATE_URL: z.string().url(),
   // Redis and SMTP are optional for the initial/demo deployment. The runtime
   // already has an in-memory rate-limit/idempotency fallback, and Payload
   // leaves email disabled when SMTP is not configured.
@@ -73,6 +76,10 @@ export const env = {
     port: Number(process.env.SMTP_PORT || 587),
     secure: process.env.SMTP_SECURE === 'true',
     user: process.env.SMTP_USER || '',
+  },
+  translation: {
+    apiKey: process.env.LIBRETRANSLATE_API_KEY || '',
+    url: process.env.LIBRETRANSLATE_URL || '',
   },
 } as const
 

@@ -121,7 +121,7 @@ export function contentHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
 }
 
-function nextStatuses(
+export function buildTranslationStatuses(
   current: TranslationStatus[] | null | undefined,
   sourceHash: string,
 ): TranslationStatus[] {
@@ -154,7 +154,7 @@ function nextStatuses(
     })
 }
 
-async function queueTask(
+export async function queueTranslationTask(
   req: PayloadRequest,
   task: 'translateCompany' | 'translatePost' | 'translateProduct',
   input: Record<string, unknown>,
@@ -206,7 +206,7 @@ export function queueCollectionTranslation(
 
     const sourceHash = contentHash(buildSource(doc))
     if (doc.translationSourceHash === sourceHash) return doc
-    const translationStatus = nextStatuses(doc.translationStatus, sourceHash)
+    const translationStatus = buildTranslationStatuses(doc.translationStatus, sourceHash)
     await req.payload.update({
       collection,
       id: doc.id,
@@ -216,7 +216,7 @@ export function queueCollectionTranslation(
       req,
       context: { ...req.context, [TRANSLATION_CONTEXT_KEY]: true },
     })
-    await queueTask(req, task, { documentId: String(doc.id), sourceHash })
+    await queueTranslationTask(req, task, { documentId: String(doc.id), sourceHash })
     return doc
   }
 }
@@ -257,7 +257,7 @@ export function queueGlobalTranslation(
 
     const sourceHash = contentHash(buildSource(doc))
     if (doc.translationSourceHash === sourceHash) return doc
-    const translationStatus = nextStatuses(doc.translationStatus, sourceHash)
+    const translationStatus = buildTranslationStatuses(doc.translationStatus, sourceHash)
     await req.payload.updateGlobal({
       slug: global,
       data: { translationSourceHash: sourceHash, translationStatus },
@@ -266,7 +266,7 @@ export function queueGlobalTranslation(
       req,
       context: { ...req.context, [TRANSLATION_CONTEXT_KEY]: true },
     })
-    await queueTask(req, task, { sourceHash })
+    await queueTranslationTask(req, task, { sourceHash })
     return doc
   }
 }

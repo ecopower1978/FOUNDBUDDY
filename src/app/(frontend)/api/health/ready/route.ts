@@ -57,6 +57,7 @@ export async function GET() {
     checks.migrations = (await checkMigrations(payload)).status
     checks.storage = await checkStorage()
     checks.redis = await redisPing()
+    checks.translation = env.translation.url ? 'configured' : 'development-not-configured'
     return NextResponse.json(
       { checks, status: 'ready', time: new Date().toISOString() },
       { headers: { 'Cache-Control': 'no-store' } },

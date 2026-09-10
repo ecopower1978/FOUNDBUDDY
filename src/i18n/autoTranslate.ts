@@ -1,5 +1,6 @@
 import * as OpenCC from 'opencc-js'
 
+import { env } from '@/config/env'
 import { localeMeta, type SiteLocale } from './config'
 
 type Translate = (value?: string | null) => Promise<string | null | undefined>
@@ -15,12 +16,12 @@ export async function translateText(
     return toTaiwanTraditional(text)
   }
 
-  const endpoint = process.env.LIBRETRANSLATE_URL?.replace(/\/$/, '')
+  const endpoint = env.translation.url.replace(/\/$/, '')
   if (!endpoint) throw new Error('LibreTranslate is not configured')
   const response = await fetch(`${endpoint}/translate`, {
     body: JSON.stringify({
-      ...(process.env.LIBRETRANSLATE_API_KEY
-        ? { api_key: process.env.LIBRETRANSLATE_API_KEY }
+      ...(env.translation.apiKey
+        ? { api_key: env.translation.apiKey }
         : {}),
       format: 'text',
       q: text,

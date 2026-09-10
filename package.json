@@ -25,6 +25,7 @@
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "storage:check": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/check-media-integrity.ts",
     "storage:configure": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/configure-object-storage.ts",
+    "translations:backfill": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/backfill-translations.ts",
     "test": "pnpm run test:int && pnpm run test:e2e",
     "test:e2e": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/run-test-command.ts e2e",
     "test:e2e:raw": "cross-env NODE_OPTIONS=--no-deprecation playwright test --config=playwright.config.ts",

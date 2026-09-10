@@ -18,7 +18,9 @@ import {
   getCachedRelatedProducts,
 } from '@/data/publicContent'
 
-export const dynamic = 'force-static'
+// Keep the request locale available to the root layout for correct HTML
+// lang/dir attributes; product data remains cached by the data layer.
+export const dynamic = 'force-dynamic'
 export const revalidate = 300
 
 type Args = {

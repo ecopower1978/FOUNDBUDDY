@@ -168,7 +168,10 @@ type HomePageProps = {
 }
 
 export const revalidate = 300
-export const dynamic = 'force-static'
+// The root layout reads x-site-locale to render the correct document lang/dir.
+// force-static would make headers() return an empty value during rendering,
+// which leaves every statically generated locale with the default `en` HTML.
+export const dynamic = 'force-dynamic'
 
 function resolveLocale(value: string): SiteLocale {
   return isSiteLocale(value) ? value : 'en'

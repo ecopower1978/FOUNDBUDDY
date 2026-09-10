@@ -103,6 +103,7 @@ jobs:
       - name: Production blank build
         env:
           CRON_SECRET: ci-cron-secret-at-least-24-characters
+          LIBRETRANSLATE_URL: http://127.0.0.1:5000
           NODE_ENV: production
           PAYLOAD_SECRET: ci-payload-secret-at-least-32-characters-long
           PREVIEW_SECRET: ci-preview-secret-at-least-24-characters
@@ -121,6 +122,7 @@ jobs:
       - name: Production blank smoke
         env:
           CRON_SECRET: ci-cron-secret-at-least-24-characters
+          LIBRETRANSLATE_URL: http://127.0.0.1:5000
           NODE_ENV: production
           PAYLOAD_SECRET: ci-payload-secret-at-least-32-characters-long
           PREVIEW_SECRET: ci-preview-secret-at-least-24-characters
@@ -148,6 +150,7 @@ jobs:
       - name: Production demo build
         env:
           CRON_SECRET: ci-cron-secret-at-least-24-characters
+          LIBRETRANSLATE_URL: http://127.0.0.1:5000
           NODE_ENV: production
           PAYLOAD_SECRET: ci-payload-secret-at-least-32-characters-long
           PREVIEW_SECRET: ci-preview-secret-at-least-24-characters
@@ -166,6 +169,7 @@ jobs:
       - name: Production demo smoke
         env:
           CRON_SECRET: ci-cron-secret-at-least-24-characters
+          LIBRETRANSLATE_URL: http://127.0.0.1:5000
           NODE_ENV: production
           PAYLOAD_SECRET: ci-payload-secret-at-least-32-characters-long
           PREVIEW_SECRET: ci-preview-secret-at-least-24-characters
