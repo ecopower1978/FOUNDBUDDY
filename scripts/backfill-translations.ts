@@ -61,4 +61,9 @@ async function drainTranslations(payload: Payload, req: PayloadRequest) {
 const drained = await drainTranslations(payload, req)
 
 console.log(JSON.stringify({ backfill, drained, ok: true }, null, 2))
-await payload.destroy()
+
+// The Vercel build invokes this script as a child process. Payload's Postgres
+// destroy hook can wait indefinitely for an internal jobs connection after the
+// work has completed, which prevents the parent build from continuing. The
+// child process boundary closes those handles safely when it exits.
+process.exit(0)
