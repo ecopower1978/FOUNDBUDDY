@@ -1,7 +1,7 @@
 'use client'
 
 import { Banner } from '@payloadcms/ui/elements/Banner'
-import { useLocale } from '@payloadcms/ui'
+import { Button, useLocale } from '@payloadcms/ui'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import './index.scss'
@@ -24,13 +24,47 @@ const entries = [
   { description: '编辑、发布和下架商品。', href: '/admin/collections/products', title: '商品管理' },
   { description: '调整首页推荐商品顺序。', href: '/admin/globals/homepage', title: '首页商品排序' },
   { description: '撰写、预览和发布文章。', href: '/admin/collections/posts', title: '博客管理' },
-  { description: '维护品牌和联系方式。', href: '/admin/globals/company', title: '公司资料与联系方式' },
-  { description: '维护客服 API 连接信息。', href: '/admin/globals/customer-service', ownerOnly: true, title: '客服 API 配置' },
+  {
+    description: '维护品牌和联系方式。',
+    href: '/admin/globals/company',
+    title: '公司资料与联系方式',
+  },
+  {
+    description: '维护客服 API 连接信息。',
+    href: '/admin/globals/customer-service',
+    ownerOnly: true,
+    title: '客服 API 配置',
+  },
 ]
 
 export default function BeforeDashboard() {
   const locale = useLocale()
   const [data, setData] = useState<DashboardData | null>(null)
+  const [translationRunning, setTranslationRunning] = useState(false)
+  const [translationMessage, setTranslationMessage] = useState<string | null>(null)
+
+  const runDictionaryBackfill = async () => {
+    setTranslationRunning(true)
+    setTranslationMessage(null)
+    try {
+      const response = await fetch('/api/admin/translations/backfill', { method: 'POST' })
+      const result = (await response.json()) as {
+        complete?: boolean
+        error?: string
+        processed?: number
+      }
+      if (!response.ok) throw new Error(result.error || '回填失败')
+      setTranslationMessage(
+        result.complete
+          ? `已处理 ${result.processed || 0} 个翻译任务。`
+          : `本次已处理 ${result.processed || 0} 个任务，剩余任务会继续排队。`,
+      )
+    } catch (error) {
+      setTranslationMessage(error instanceof Error ? error.message : '回填失败')
+    } finally {
+      setTranslationRunning(false)
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -59,18 +93,45 @@ export default function BeforeDashboard() {
           </div>
         </div>
         <nav aria-label="后台主要功能" className="before-dashboard__entries">
-          {entries.filter((entry) => !entry.ownerOnly || data?.role === 'owner').map((entry) => (
-            <Link href={entry.href} key={entry.href}>
-              <strong>{entry.title}</strong>
-              <span>{entry.description}</span>
-            </Link>
-          ))}
+          {entries
+            .filter((entry) => !entry.ownerOnly || data?.role === 'owner')
+            .map((entry) => (
+              <Link href={entry.href} key={entry.href}>
+                <strong>{entry.title}</strong>
+                <span>{entry.description}</span>
+              </Link>
+            ))}
         </nav>
       </section>
 
+      {data?.role === 'owner' && (
+        <section
+          aria-labelledby="before-dashboard-translation"
+          className="before-dashboard__section"
+        >
+          <div className="before-dashboard__section-heading">
+            <div>
+              <h3 id="before-dashboard-translation">本地字典翻译</h3>
+              <p>按优先级回填现有内容；未命中的原文会保留并标记为部分完成。</p>
+            </div>
+            <Button
+              buttonStyle="secondary"
+              disabled={translationRunning}
+              onClick={runDictionaryBackfill}
+            >
+              {translationRunning ? '正在处理…' : '立即回填翻译'}
+            </Button>
+          </div>
+          {translationMessage && <p role="status">{translationMessage}</p>}
+        </section>
+      )}
+
       {data && (
         <>
-          <section aria-labelledby="before-dashboard-overview" className="before-dashboard__section">
+          <section
+            aria-labelledby="before-dashboard-overview"
+            className="before-dashboard__section"
+          >
             <div className="before-dashboard__section-heading">
               <div>
                 <h3 id="before-dashboard-overview">内容概览</h3>
@@ -94,7 +155,9 @@ export default function BeforeDashboard() {
                 <span>已发布文章</span>
                 <strong>{data.stats.publishedPosts}</strong>
               </div>
-              <div className={`before-dashboard__stat${data.stats.failedTranslations ? ' is-warning' : ''}`}>
+              <div
+                className={`before-dashboard__stat${data.stats.failedTranslations ? ' is-warning' : ''}`}
+              >
                 <span>翻译失败内容</span>
                 <strong>{data.stats.failedTranslations}</strong>
               </div>
@@ -113,15 +176,31 @@ export default function BeforeDashboard() {
             <section className="before-dashboard__panel">
               <h3>最近发布</h3>
               {data.recent.length ? (
-                <ul>{data.recent.map((item) => <li key={`${item.type}-${item.href}`}><Link href={item.href}>{item.type} · {item.title}</Link></li>)}</ul>
-              ) : <p>暂无已发布内容。</p>}
+                <ul>
+                  {data.recent.map((item) => (
+                    <li key={`${item.type}-${item.href}`}>
+                      <Link href={item.href}>
+                        {item.type} · {item.title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>暂无已发布内容。</p>
+              )}
             </section>
             {data.role === 'owner' && (
               <section className="before-dashboard__panel">
                 <h3>最近审计记录</h3>
                 {data.audits?.length ? (
-                  <ul>{data.audits.map((item) => <li key={item.id}>{item.summary}</li>)}</ul>
-                ) : <p>暂无审计记录。</p>}
+                  <ul>
+                    {data.audits.map((item) => (
+                      <li key={item.id}>{item.summary}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>暂无审计记录。</p>
+                )}
               </section>
             )}
           </div>
@@ -129,8 +208,16 @@ export default function BeforeDashboard() {
       )}
 
       <p className="before-dashboard__footer">
-        <Link href={`/${locale.code}`} rel="noreferrer" target="_blank">查看当前语言前台</Link>
-        {data?.role === 'owner' && <> · <Link href="/admin/collections/users">管理账号</Link> · <Link href="/admin/collections/audit-events">查看全部审计记录</Link></>}
+        <Link href={`/${locale.code}`} rel="noreferrer" target="_blank">
+          查看当前语言前台
+        </Link>
+        {data?.role === 'owner' && (
+          <>
+            {' '}
+            · <Link href="/admin/collections/users">管理账号</Link> ·{' '}
+            <Link href="/admin/collections/audit-events">查看全部审计记录</Link>
+          </>
+        )}
       </p>
     </div>
   )
