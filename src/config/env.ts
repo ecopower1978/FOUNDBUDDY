@@ -22,9 +22,9 @@ const productionSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_PUBLIC_URL: z.string().url().startsWith('https://'),
   S3_CLIENT_UPLOADS: z.enum(['true', 'false']).optional(),
-  // Public pages advertise nine locales; production must have the upstream
-  // service configured so queued content translations cannot silently fail.
-  LIBRETRANSLATE_URL: z.string().url(),
+  // Local dictionary translation is the default and needs no network service.
+  // LibreTranslate remains an optional provider for deployments that choose it.
+  TRANSLATION_PROVIDER: z.enum(['dictionary', 'libretranslate']).optional(),
   // Redis and SMTP are optional for the initial/demo deployment. The runtime
   // already has an in-memory rate-limit/idempotency fallback, and Payload
   // leaves email disabled when SMTP is not configured.
@@ -51,8 +51,7 @@ if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
 
 export const env = {
   databaseURL:
-    process.env.DATABASE_URL ||
-    'postgresql://payload:payload@127.0.0.1:5432/international_trade',
+    process.env.DATABASE_URL || 'postgresql://payload:payload@127.0.0.1:5432/international_trade',
   siteURL: process.env.SITE_URL || 'http://localhost:3000',
   payloadSecret: process.env.PAYLOAD_SECRET || 'development-only-payload-secret-change-me',
   previewSecret: process.env.PREVIEW_SECRET || 'development-preview-secret',
@@ -79,6 +78,8 @@ export const env = {
   },
   translation: {
     apiKey: process.env.LIBRETRANSLATE_API_KEY || '',
+    provider:
+      process.env.TRANSLATION_PROVIDER === 'libretranslate' ? 'libretranslate' : 'dictionary',
     url: process.env.LIBRETRANSLATE_URL || '',
   },
 } as const
@@ -119,10 +120,7 @@ function getSiteOrigins(siteURL: string): string[] {
 export const siteOrigins = getSiteOrigins(env.siteURL)
 
 export const isS3Configured = Boolean(
-  env.s3.bucket &&
-    env.s3.accessKeyId &&
-    env.s3.secretAccessKey &&
-    env.s3.publicURL,
+  env.s3.bucket && env.s3.accessKeyId && env.s3.secretAccessKey && env.s3.publicURL,
 )
 
 export const isSMTPConfigured = Boolean(env.smtp.host && env.smtp.fromAddress)

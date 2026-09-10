@@ -16,8 +16,7 @@ async function checkDatabase() {
 }
 
 async function checkMigrations(payload: Awaited<ReturnType<typeof getPayload>>) {
-  const enforce =
-    process.env.NODE_ENV === 'production' || process.env.PAYLOAD_DB_PUSH === 'false'
+  const enforce = process.env.NODE_ENV === 'production' || process.env.PAYLOAD_DB_PUSH === 'false'
   if (!enforce) return { missing: [] as string[], status: 'development-push' }
 
   const result = await payload.find({
@@ -57,7 +56,10 @@ export async function GET() {
     checks.migrations = (await checkMigrations(payload)).status
     checks.storage = await checkStorage()
     checks.redis = await redisPing()
-    checks.translation = env.translation.url ? 'configured' : 'development-not-configured'
+    checks.translation =
+      env.translation.provider === 'libretranslate' && env.translation.url
+        ? 'libretranslate'
+        : 'local-dictionary'
     return NextResponse.json(
       { checks, status: 'ready', time: new Date().toISOString() },
       { headers: { 'Cache-Control': 'no-store' } },
@@ -66,14 +68,9 @@ export async function GET() {
     console.error('Readiness check failed', {
       checks,
       error: error instanceof Error ? error.message : String(error),
-      code:
-        error && typeof error === 'object' && 'Code' in error
-          ? String(error.Code)
-          : undefined,
+      code: error && typeof error === 'object' && 'Code' in error ? String(error.Code) : undefined,
       metadata:
-        error && typeof error === 'object' && '$metadata' in error
-          ? error.$metadata
-          : undefined,
+        error && typeof error === 'object' && '$metadata' in error ? error.$metadata : undefined,
     })
     return NextResponse.json(
       { checks, status: 'not-ready', time: new Date().toISOString() },

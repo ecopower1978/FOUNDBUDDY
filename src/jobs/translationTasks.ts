@@ -1,7 +1,7 @@
 import type { Payload, PayloadRequest, TaskConfig } from 'payload'
 
 import { type SiteLocale } from '@/i18n/config'
-import { translateLexical, translateText } from '@/i18n/autoTranslate'
+import { translateLexical, translateTextWithCoverage } from '@/i18n/autoTranslate'
 import {
   getNextTranslationLocale,
   getTranslationLocale,
@@ -74,14 +74,15 @@ function updateStatus(
 }
 
 /**
- * Serialize every upstream translation request within one language task.
- * Some rich-text and specification fields are traversed with Promise.all for
- * data-shape convenience; this queue keeps the actual HTTP calls one at a
- * time so those traversals cannot burst the LibreTranslate process.
+ * Serialize every translation operation within one language task. Some
+ * rich-text and specification fields are traversed with Promise.all for
+ * data-shape convenience; this queue keeps the work deterministic and also
+ * prevents an optional remote provider from receiving a burst of requests.
  */
 function createTranslationQueue(target: TranslationTargetLocale) {
   let tail: Promise<void> = Promise.resolve()
   let failure: unknown
+  let partial = false
 
   function translate(value: string): Promise<string>
   function translate(value?: string | null): Promise<string | null | undefined>
@@ -90,7 +91,10 @@ function createTranslationQueue(target: TranslationTargetLocale) {
 
     const result = tail.then(() => {
       if (failure) throw failure
-      return translateText(value, 'zh-CN', target)
+      return translateTextWithCoverage(value, 'zh-CN', target).then((translated) => {
+        partial ||= translated.partial
+        return translated.text
+      })
     })
     tail = result.then(
       () => undefined,
@@ -102,7 +106,10 @@ function createTranslationQueue(target: TranslationTargetLocale) {
     return result
   }
 
-  return translate
+  return {
+    hasPartial: () => partial,
+    translate,
+  }
 }
 
 async function queueNextLocale(
@@ -177,7 +184,8 @@ async function translateCollection(
   await updateCollectionStatuses(payload, collection, source.id, statuses)
 
   try {
-    const translate = createTranslationQueue(locale)
+    const translationQueue = createTranslationQueue(locale)
+    const translate = translationQueue.translate
     const data =
       collection === 'products'
         ? {
@@ -217,9 +225,9 @@ async function translateCollection(
       context: { [TRANSLATION_CONTEXT_KEY]: true, translationLocale: locale },
     })
     statuses = updateStatus(statuses, locale, {
-      error: null,
+      error: translationQueue.hasPartial() ? '本地字典未覆盖部分原文，未命中的内容已保留。' : null,
       sourceHash,
-      status: 'complete',
+      status: translationQueue.hasPartial() ? 'partial' : 'complete',
     })
   } catch (error) {
     statuses = updateStatus(statuses, locale, {
@@ -271,7 +279,8 @@ async function translateCompany(req: PayloadRequest, input: TaskInput) {
   })
 
   try {
-    const translate = createTranslationQueue(locale)
+    const translationQueue = createTranslationQueue(locale)
+    const translate = translationQueue.translate
     await payload.updateGlobal({
       slug: 'company',
       data: {
@@ -296,9 +305,9 @@ async function translateCompany(req: PayloadRequest, input: TaskInput) {
       context: { [TRANSLATION_CONTEXT_KEY]: true, translationLocale: locale },
     })
     statuses = updateStatus(statuses, locale, {
-      error: null,
+      error: translationQueue.hasPartial() ? '本地字典未覆盖部分原文，未命中的内容已保留。' : null,
       sourceHash,
-      status: 'complete',
+      status: translationQueue.hasPartial() ? 'partial' : 'complete',
     })
   } catch (error) {
     statuses = updateStatus(statuses, locale, {

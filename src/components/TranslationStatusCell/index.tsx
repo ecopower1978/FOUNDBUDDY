@@ -9,14 +9,17 @@ export default function TranslationStatusCell({ cellData }: { cellData?: StatusI
   const pending = items.filter(
     (item) => item.status === 'pending' || item.status === 'translating',
   ).length
+  const partial = items.filter((item) => item.status === 'partial').length
   const manual = items.filter((item) => item.mode === 'manual').length
   const complete = items.filter((item) => item.status === 'complete').length
-  const color = failed ? '#b42318' : pending ? '#b54708' : '#067647'
+  const color = failed ? '#b42318' : pending || partial ? '#b54708' : '#067647'
   const label = failed
     ? `${failed} 个失败`
     : pending
       ? `${pending} 个处理中`
-      : `${complete} 个完成${manual ? ` · ${manual} 个手工` : ''}`
+      : partial
+        ? `${partial} 个部分完成`
+        : `${complete} 个完成${manual ? ` · ${manual} 个手工` : ''}`
 
   return (
     <span

@@ -28,6 +28,7 @@ export const TRANSLATION_CONTEXT_KEY = 'translationWorkflow'
  * Translation is intentionally drained in this order. English is the primary
  * business language, followed by the most broadly useful trade languages.
  * Traditional Chinese is last because it is converted locally with OpenCC.
+ * Other locales use the local site dictionary by default.
  */
 export const translationLocaleOrder = [
   'en',
@@ -117,7 +118,7 @@ export const translationFields: Field[] = [
       components: {
         Cell: '@/components/TranslationStatusCell',
       },
-      description: '保存中文原文后系统会在后台翻译。失败语言可从编辑页右侧重新提交。',
+      description: '保存中文原文后系统会按本地词典生成译文。未命中内容会保留原文并标记为部分完成。',
       position: 'sidebar',
       readOnly: true,
     },
