@@ -22,7 +22,8 @@ import {
 import { writeAuditEvent } from '../utilities/audit'
 import { revalidateLocalizedContent } from '../utilities/revalidateLocalized'
 
-const validatePublish: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+const validatePublish: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
+  if (req.context?.translationWorkflow) return data
   if (data._status !== 'published') return data
 
   const title = data.title ?? originalDoc?.title
@@ -258,7 +259,10 @@ export const Products: CollectionConfig = {
       type: 'upload',
       relationTo: 'media',
       hasMany: true,
-      maxRows: 8,
+      // Keep legacy imports with up to 16 stored image relations writable.
+      // Translation/status updates do not modify this field, but Payload still
+      // validates the complete document during a localized update.
+      maxRows: 16,
       admin: {
         allowCreate: true,
         description: tr(

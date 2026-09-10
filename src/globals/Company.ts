@@ -94,7 +94,7 @@ export const Company: GlobalConfig = {
         highlights: doc.highlights,
       })),
       async ({ doc, req }) => {
-        revalidateLocalizedContent(req, 'company')
+        if (!req.context?.disableRevalidate) revalidateLocalizedContent(req, 'company')
         if (!req.context?.translationWorkflow) {
           await writeAuditEvent(req, {
             action: 'company.updated',

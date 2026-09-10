@@ -1,4 +1,4 @@
-import type { Payload, PayloadRequest, TaskConfig } from 'payload'
+import type { PayloadRequest, TaskConfig } from 'payload'
 
 import { type SiteLocale } from '@/i18n/config'
 import { translateLexical, translateTextWithCoverage } from '@/i18n/autoTranslate'
@@ -12,8 +12,8 @@ import {
   type TranslationTargetLocale,
 } from '@/i18n/translationWorkflow'
 
-type TranslationTaskSlug = 'translateCompany' | 'translatePost' | 'translateProduct'
-type TaskInput = { documentId?: string; locale?: string; sourceHash?: string }
+export type TranslationTaskSlug = 'translateCompany' | 'translatePost' | 'translateProduct'
+export type TranslationTaskInput = { documentId?: string; locale?: string; sourceHash?: string }
 type CollectionTranslationSource = {
   category?: string | null
   content?: unknown
@@ -43,6 +43,24 @@ type CompanyTranslationSource = {
   highlights?: Array<Record<string, unknown>>
   translationSourceHash?: string | null
   translationStatus?: TranslationStatus[] | null
+}
+
+function translationStatusContext() {
+  return {
+    [TRANSLATION_CONTEXT_KEY]: true,
+    ...(process.env.TRANSLATION_BACKFILL_ON_BUILD === 'true' ? { disableRevalidate: true } : {}),
+  }
+}
+
+function translationWriteOptions() {
+  return process.env.TRANSLATION_BACKFILL_ON_BUILD === 'true' ? { disableTransaction: true } : {}
+}
+
+function translationWriteContext(locale: TranslationTargetLocale) {
+  return {
+    ...translationStatusContext(),
+    translationLocale: locale,
+  }
 }
 
 const inputSchema: TaskConfig['inputSchema'] = [
@@ -130,25 +148,32 @@ async function queueNextLocale(
 }
 
 async function updateCollectionStatuses(
-  payload: Payload,
+  req: PayloadRequest,
   collection: 'posts' | 'products',
   id: number | string,
   statuses: TranslationStatus[],
 ) {
-  await payload.update({
+  await req.payload.update({
     collection,
     id,
     data: { translationStatus: statuses },
     locale: 'zh-CN',
     overrideAccess: true,
-    context: { [TRANSLATION_CONTEXT_KEY]: true },
+    req,
+    ...translationWriteOptions(),
+    context: translationStatusContext(),
   })
+}
+
+type TranslationExecutionOptions = {
+  queueNext?: boolean
 }
 
 async function translateCollection(
   req: PayloadRequest,
   collection: 'posts' | 'products',
-  input: TaskInput,
+  input: TranslationTaskInput,
+  options: TranslationExecutionOptions = {},
 ) {
   const payload = req.payload
   const id = input.documentId || ''
@@ -161,6 +186,7 @@ async function translateCollection(
     locale: 'zh-CN',
     fallbackLocale: false,
     overrideAccess: true,
+    req,
   })) as CollectionTranslationSource
 
   if (source.translationSourceHash !== sourceHash) {
@@ -170,7 +196,7 @@ async function translateCollection(
   let statuses = (source.translationStatus || []) as TranslationStatus[]
   const firstPendingLocale = getNextTranslationLocale(statuses, sourceHash)
   if (firstPendingLocale !== locale) {
-    if (firstPendingLocale) {
+    if (firstPendingLocale && options.queueNext !== false) {
       await queueTranslationTask(req, task, {
         documentId: String(source.id),
         locale: firstPendingLocale,
@@ -181,7 +207,7 @@ async function translateCollection(
   }
 
   statuses = updateStatus(statuses, locale, { error: null, status: 'translating' })
-  await updateCollectionStatuses(payload, collection, source.id, statuses)
+  await updateCollectionStatuses(req, collection, source.id, statuses)
 
   try {
     const translationQueue = createTranslationQueue(locale)
@@ -222,7 +248,9 @@ async function translateCollection(
       data,
       locale,
       overrideAccess: true,
-      context: { [TRANSLATION_CONTEXT_KEY]: true, translationLocale: locale },
+      req,
+      ...translationWriteOptions(),
+      context: translationWriteContext(locale),
     })
     statuses = updateStatus(statuses, locale, {
       error: translationQueue.hasPartial() ? '本地字典未覆盖部分原文，未命中的内容已保留。' : null,
@@ -230,20 +258,41 @@ async function translateCollection(
       status: translationQueue.hasPartial() ? 'partial' : 'complete',
     })
   } catch (error) {
+    console.log(
+      '[translation-task] error',
+      JSON.stringify({
+        collection,
+        documentId: source.id,
+        error: error instanceof Error ? error.message : String(error),
+        locale,
+      }),
+    )
     statuses = updateStatus(statuses, locale, {
       error: error instanceof Error ? error.message.slice(0, 500) : '未知翻译错误',
       status: 'failed',
     })
-    await updateCollectionStatuses(payload, collection, source.id, statuses)
+    await updateCollectionStatuses(req, collection, source.id, statuses)
     throw error
   }
 
-  await updateCollectionStatuses(payload, collection, source.id, statuses)
-  await queueNextLocale(req, task, { documentId: String(source.id), sourceHash }, statuses, locale)
+  await updateCollectionStatuses(req, collection, source.id, statuses)
+  if (options.queueNext !== false) {
+    await queueNextLocale(
+      req,
+      task,
+      { documentId: String(source.id), sourceHash },
+      statuses,
+      locale,
+    )
+  }
   return { failed: 0, stale: false, translated: 1 }
 }
 
-async function translateCompany(req: PayloadRequest, input: TaskInput) {
+async function translateCompany(
+  req: PayloadRequest,
+  input: TranslationTaskInput,
+  options: TranslationExecutionOptions = {},
+) {
   const payload = req.payload
   const sourceHash = String(input.sourceHash || '')
   const locale = getTranslationLocale(input.locale)
@@ -252,6 +301,7 @@ async function translateCompany(req: PayloadRequest, input: TaskInput) {
     locale: 'zh-CN',
     fallbackLocale: false,
     overrideAccess: true,
+    req,
   })) as CompanyTranslationSource
   if (source.translationSourceHash !== sourceHash) {
     return { failed: 0, stale: true, translated: 0 }
@@ -260,7 +310,7 @@ async function translateCompany(req: PayloadRequest, input: TaskInput) {
   let statuses = (source.translationStatus || []) as TranslationStatus[]
   const firstPendingLocale = getNextTranslationLocale(statuses, sourceHash)
   if (firstPendingLocale !== locale) {
-    if (firstPendingLocale) {
+    if (firstPendingLocale && options.queueNext !== false) {
       await queueTranslationTask(req, 'translateCompany', {
         locale: firstPendingLocale,
         sourceHash,
@@ -275,7 +325,9 @@ async function translateCompany(req: PayloadRequest, input: TaskInput) {
     data: { translationStatus: statuses },
     locale: 'zh-CN',
     overrideAccess: true,
-    context: { [TRANSLATION_CONTEXT_KEY]: true },
+    req,
+    ...translationWriteOptions(),
+    context: translationStatusContext(),
   })
 
   try {
@@ -302,7 +354,9 @@ async function translateCompany(req: PayloadRequest, input: TaskInput) {
       },
       locale,
       overrideAccess: true,
-      context: { [TRANSLATION_CONTEXT_KEY]: true, translationLocale: locale },
+      req,
+      ...translationWriteOptions(),
+      context: translationWriteContext(locale),
     })
     statuses = updateStatus(statuses, locale, {
       error: translationQueue.hasPartial() ? '本地字典未覆盖部分原文，未命中的内容已保留。' : null,
@@ -310,6 +364,14 @@ async function translateCompany(req: PayloadRequest, input: TaskInput) {
       status: translationQueue.hasPartial() ? 'partial' : 'complete',
     })
   } catch (error) {
+    console.log(
+      '[translation-task] error',
+      JSON.stringify({
+        error: error instanceof Error ? error.message : String(error),
+        locale,
+        task: 'translateCompany',
+      }),
+    )
     statuses = updateStatus(statuses, locale, {
       error: error instanceof Error ? error.message.slice(0, 500) : '未知翻译错误',
       status: 'failed',
@@ -319,7 +381,9 @@ async function translateCompany(req: PayloadRequest, input: TaskInput) {
       data: { translationStatus: statuses },
       locale: 'zh-CN',
       overrideAccess: true,
-      context: { [TRANSLATION_CONTEXT_KEY]: true },
+      req,
+      ...translationWriteOptions(),
+      context: translationStatusContext(),
     })
     throw error
   }
@@ -329,10 +393,25 @@ async function translateCompany(req: PayloadRequest, input: TaskInput) {
     data: { translationStatus: statuses },
     locale: 'zh-CN',
     overrideAccess: true,
-    context: { [TRANSLATION_CONTEXT_KEY]: true },
+    req,
+    ...translationWriteOptions(),
+    context: translationStatusContext(),
   })
-  await queueNextLocale(req, 'translateCompany', { sourceHash }, statuses, locale)
+  if (options.queueNext !== false) {
+    await queueNextLocale(req, 'translateCompany', { sourceHash }, statuses, locale)
+  }
   return { failed: 0, stale: false, translated: 1 }
+}
+
+export async function runTranslationTaskDirect(
+  req: PayloadRequest,
+  task: TranslationTaskSlug,
+  input: TranslationTaskInput,
+) {
+  if (task === 'translateCompany') return translateCompany(req, input, { queueNext: false })
+  return translateCollection(req, task === 'translateProduct' ? 'products' : 'posts', input, {
+    queueNext: false,
+  })
 }
 
 const taskBase = {
@@ -354,24 +433,27 @@ export const translationTasks: TaskConfig[] = [
     ...taskBase,
     slug: 'translateProduct',
     label: '翻译商品',
-    handler: async ({ input, req }) => ({
-      output: await translateCollection(req, 'products', input as TaskInput),
-    }),
+    handler: async ({ input, req }) => {
+      const output = await translateCollection(req, 'products', input as TranslationTaskInput)
+      return { output }
+    },
   },
   {
     ...taskBase,
     slug: 'translatePost',
     label: '翻译文章',
-    handler: async ({ input, req }) => ({
-      output: await translateCollection(req, 'posts', input as TaskInput),
-    }),
+    handler: async ({ input, req }) => {
+      const output = await translateCollection(req, 'posts', input as TranslationTaskInput)
+      return { output }
+    },
   },
   {
     ...taskBase,
     slug: 'translateCompany',
     label: '翻译公司资料',
-    handler: async ({ input, req }) => ({
-      output: await translateCompany(req, input as TaskInput),
-    }),
+    handler: async ({ input, req }) => {
+      const output = await translateCompany(req, input as TranslationTaskInput)
+      return { output }
+    },
   },
 ]

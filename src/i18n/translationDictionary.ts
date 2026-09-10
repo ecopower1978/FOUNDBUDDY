@@ -18,6 +18,7 @@ type DictionaryEntry = readonly [source: string, target: string]
  */
 const domainEntries: Record<TranslationTargetLocale, readonly DictionaryEntry[]> = {
   en: [
+    ['欢迎来到Foundbuddy', 'Welcome to Foundbuddy'],
     ['国际贸易', 'international trade'],
     ['国际采购商', 'international buyer'],
     ['国际采购', 'international sourcing'],
@@ -125,6 +126,7 @@ const domainEntries: Record<TranslationTargetLocale, readonly DictionaryEntry[]>
     ['柔软亲肤', 'soft and skin-friendly'],
   ],
   de: [
+    ['欢迎来到Foundbuddy', 'Willkommen bei Foundbuddy'],
     ['国际贸易', 'internationaler Handel'],
     ['国际采购商', 'internationaler Einkäufer'],
     ['国际采购', 'internationale Beschaffung'],
@@ -232,6 +234,7 @@ const domainEntries: Record<TranslationTargetLocale, readonly DictionaryEntry[]>
     ['柔软亲肤', 'weich und hautfreundlich'],
   ],
   es: [
+    ['欢迎来到Foundbuddy', 'Bienvenido a Foundbuddy'],
     ['国际贸易', 'comercio internacional'],
     ['国际采购商', 'comprador internacional'],
     ['国际采购', 'abastecimiento internacional'],
@@ -339,6 +342,7 @@ const domainEntries: Record<TranslationTargetLocale, readonly DictionaryEntry[]>
     ['柔软亲肤', 'suave y agradable para la piel'],
   ],
   pt: [
+    ['欢迎来到Foundbuddy', 'Bem-vindo ao Foundbuddy'],
     ['国际贸易', 'comércio internacional'],
     ['国际采购商', 'comprador internacional'],
     ['国际采购', 'fornecimento internacional'],
@@ -446,6 +450,7 @@ const domainEntries: Record<TranslationTargetLocale, readonly DictionaryEntry[]>
     ['柔软亲肤', 'macio e suave para a pele'],
   ],
   ar: [
+    ['欢迎来到Foundbuddy', 'مرحبًا بكم في Foundbuddy'],
     ['国际贸易', 'التجارة الدولية'],
     ['国际采购商', 'المشتري الدولي'],
     ['国际采购', 'التوريد الدولي'],
@@ -553,6 +558,7 @@ const domainEntries: Record<TranslationTargetLocale, readonly DictionaryEntry[]>
     ['柔软亲肤', 'ناعم ولطيف على البشرة'],
   ],
   he: [
+    ['欢迎来到Foundbuddy', 'ברוכים הבאים ל‑Foundbuddy'],
     ['国际贸易', 'סחר בינלאומי'],
     ['国际采购商', 'קונה בינלאומי'],
     ['国际采购', 'רכש בינלאומי'],
@@ -660,6 +666,7 @@ const domainEntries: Record<TranslationTargetLocale, readonly DictionaryEntry[]>
     ['柔软亲肤', 'רך ונעים לעור'],
   ],
   ko: [
+    ['欢迎来到Foundbuddy', 'Foundbuddy에 오신 것을 환영합니다'],
     ['国际贸易', '국제 무역'],
     ['国际采购商', '해외 구매자'],
     ['国际采购', '국제 소싱'],

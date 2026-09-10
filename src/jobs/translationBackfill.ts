@@ -1,4 +1,4 @@
-import type { Payload, PayloadRequest } from 'payload'
+import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
 
 import {
   buildTranslationStatuses,
@@ -39,6 +39,7 @@ type TranslationBackfillResult = {
 }
 
 type TranslationBackfillOptions = {
+  enqueue?: boolean
   refreshAuto?: boolean
 }
 
@@ -105,7 +106,8 @@ function hasMissingLocalizedContent(
   existingLocales: Set<TranslationTargetLocale>,
 ) {
   return targetLocales.some(
-    (locale) => !existingLocales.has(locale) && Boolean(statuses?.some((item) => item.locale === locale)),
+    (locale) =>
+      !existingLocales.has(locale) && Boolean(statuses?.some((item) => item.locale === locale)),
   )
 }
 
@@ -125,42 +127,57 @@ function repairMissingLocalizedContent(
   )
 }
 
-async function localizedCollectionLocales(
+async function localizedCollectionLocalesByID(
   payload: Payload,
   req: PayloadRequest,
   collection: 'posts' | 'products',
-  id: number | string,
   hasTranslation: (doc: TranslationDocument) => boolean,
 ) {
-  const localesWithContent = await Promise.all(
+  const localizedDocs = await Promise.all(
     targetLocales.map(async (locale) => {
-      const doc = (await payload.findByID({
+      const localeReq = await createLocalReq(
+        { context: req.context, fallbackLocale: false, locale },
+        payload,
+      )
+      const result = await payload.find({
         collection,
-        id,
         depth: 0,
         fallbackLocale: false,
+        limit: 0,
         locale,
         overrideAccess: true,
-        req,
-      })) as TranslationDocument
-      return hasTranslation(doc) ? locale : null
+        pagination: false,
+        req: localeReq,
+      })
+      return { docs: result.docs as unknown as TranslationDocument[], locale }
     }),
   )
-  return new Set(
-    localesWithContent.filter((locale): locale is TranslationTargetLocale => locale !== null),
-  )
+  const localesByID = new Map<string, Set<TranslationTargetLocale>>()
+  for (const { docs, locale } of localizedDocs) {
+    for (const doc of docs) {
+      if (!hasTranslation(doc)) continue
+      const locales = localesByID.get(String(doc.id)) || new Set<TranslationTargetLocale>()
+      locales.add(locale)
+      localesByID.set(String(doc.id), locales)
+    }
+  }
+  return localesByID
 }
 
 async function localizedCompanyLocales(payload: Payload, req: PayloadRequest) {
   const localesWithContent = await Promise.all(
     targetLocales.map(async (locale) => {
+      const localeReq = await createLocalReq(
+        { context: req.context, fallbackLocale: false, locale },
+        payload,
+      )
       const doc = (await payload.findGlobal({
         slug: 'company',
         depth: 0,
         fallbackLocale: false,
         locale,
         overrideAccess: true,
-        req,
+        req: localeReq,
       })) as TranslationDocument
       return hasCompanyTranslation(doc) ? locale : null
     }),
@@ -189,6 +206,7 @@ async function backfillCollection(
     req,
   })
   let queued = 0
+  const localesByID = await localizedCollectionLocalesByID(payload, req, collection, hasTranslation)
 
   for (const rawDoc of result.docs) {
     const doc = rawDoc as unknown as TranslationDocument
@@ -209,13 +227,7 @@ async function backfillCollection(
           }
     const sourceHash = contentHash(source)
     const currentStatuses = doc.translationStatus || []
-    const existingLocales = await localizedCollectionLocales(
-      payload,
-      req,
-      collection,
-      doc.id,
-      hasTranslation,
-    )
+    const existingLocales = localesByID.get(String(doc.id)) || new Set<TranslationTargetLocale>()
     const shouldRefreshAuto =
       options.refreshAuto && currentStatuses.some((status) => status.mode === 'auto')
     if (
@@ -245,7 +257,7 @@ async function backfillCollection(
       req,
       context,
     })
-    if (needsQueue(repairedStatuses)) {
+    if (needsQueue(repairedStatuses) && options.enqueue !== false) {
       await queueTranslationTask(req, task, {
         documentId: String(doc.id),
         sourceHash,
@@ -308,7 +320,7 @@ async function backfillCompany(
     req,
     context,
   })
-  if (!needsQueue(repairedStatuses)) return 0
+  if (!needsQueue(repairedStatuses) || options.enqueue === false) return 0
 
   await queueTranslationTask(req, 'translateCompany', { sourceHash })
   return 1

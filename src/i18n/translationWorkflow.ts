@@ -66,7 +66,8 @@ export function getTranslationQueueOrder(): string[] {
 
 /**
  * Returns the first locale that still needs automatic translation. A manual
- * locale is considered complete for queue ordering, while a failed locale is
+ * locale and a dictionary translation with matching source content are both
+ * considered complete for queue ordering, while a failed locale is
  * deliberately kept in front of later locales so retries preserve priority.
  */
 export function getNextTranslationLocale(
@@ -82,7 +83,10 @@ export function getNextTranslationLocale(
       const status = statuses.get(locale)
       return (
         status?.mode !== 'manual' &&
-        !(status?.status === 'complete' && status.sourceHash === sourceHash)
+        !(
+          (status?.status === 'complete' || status?.status === 'partial') &&
+          status.sourceHash === sourceHash
+        )
       )
     }) || null
   )
