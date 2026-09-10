@@ -19,6 +19,7 @@ if (process.env.TRANSLATION_BACKFILL_ON_BUILD === 'true') {
   runPnpm(['run', 'translations:backfill', '--', '--apply'], {
     ...process.env,
     TRANSLATION_BACKFILL_CONFIRM: 'BACKFILL_TRANSLATIONS',
+    TRANSLATION_BACKFILL_REFRESH_AUTO: 'true',
   })
 }
 

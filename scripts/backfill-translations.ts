@@ -25,7 +25,9 @@ if (
 
 const payload = await getPayload({ config: configPromise })
 const req = await createLocalReq({}, payload)
-const backfill = await queueMissingTranslationJobs(payload, req)
+const backfill = await queueMissingTranslationJobs(payload, req, {
+  refreshAuto: process.env.TRANSLATION_BACKFILL_REFRESH_AUTO === 'true',
+})
 
 async function drainTranslations(payload: Payload, req: PayloadRequest) {
   let processed = 0
