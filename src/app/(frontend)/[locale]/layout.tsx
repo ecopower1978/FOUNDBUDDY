@@ -4,6 +4,7 @@ import { AIChat } from '@/components/AIChat'
 import { AdminBar } from '@/components/AdminBar'
 import { Footer } from '@/Footer/Component'
 import { Header } from '@/Header/Component'
+import { siteTemplate } from '@/config/siteTemplate'
 import { isSiteLocale, localeMeta } from '@/i18n/config'
 
 export const revalidate = 300
@@ -25,7 +26,12 @@ export default async function LocaleLayout({
   return (
     <>
       <script dangerouslySetInnerHTML={{ __html: documentAttributesScript }} />
-      <div dir={documentLocale.dir} lang={documentLocale.htmlLang}>
+      <div
+        className={`site-template site-template--${siteTemplate}`}
+        data-site-template={siteTemplate}
+        dir={documentLocale.dir}
+        lang={documentLocale.htmlLang}
+      >
         <AdminBar />
         <Header locale={locale} />
         {children}

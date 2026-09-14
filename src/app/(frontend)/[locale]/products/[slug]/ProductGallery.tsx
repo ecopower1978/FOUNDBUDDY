@@ -4,6 +4,8 @@ import { PackageCheck } from 'lucide-react'
 import Image from 'next/image'
 import { useState } from 'react'
 
+import { isLocalMediaURL } from '@/utilities/isLocalMediaURL'
+
 type ProductImage = {
   alt: string
   thumbnailUrl?: string
@@ -30,6 +32,7 @@ export function ProductGallery({
             priority={activeIndex === 0}
             sizes="(max-width: 768px) 100vw, 50vw"
             src={activeImage.url}
+            unoptimized={isLocalMediaURL(activeImage.url)}
           />
         ) : (
           <div className="product-detail__placeholder">
@@ -50,7 +53,7 @@ export function ProductGallery({
               onClick={() => setActiveIndex(index)}
               type="button"
             >
-              <Image alt="" fill sizes="84px" src={image.thumbnailUrl || image.url} />
+              <Image alt="" fill sizes="84px" src={image.thumbnailUrl || image.url} unoptimized={isLocalMediaURL(image.thumbnailUrl || image.url)} />
             </button>
           ))}
         </div>

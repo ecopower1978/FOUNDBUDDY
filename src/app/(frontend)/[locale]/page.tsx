@@ -1,214 +1,39 @@
-import {
-  ArrowRight,
-  Check,
-  Globe2,
-  Mail,
-  MapPin,
-  MessageCircle,
-  PackageCheck,
-  Phone,
-} from 'lucide-react'
 import type { Metadata } from 'next'
-import Link from 'next/link'
 
-import { getMessages, isSiteLocale, localeMeta, locales, type SiteLocale } from '@/i18n/config'
-import { HeroProductCarousel } from '@/components/HeroProductCarousel'
-import { ProductCarousel } from '@/components/ProductCarousel'
-import { demoProductImages, isDemoSite, siteBrandName, siteContactEmail } from '@/config/siteVariant'
-import { isLocaleTranslationComplete } from '@/i18n/translationWorkflow'
+import { siteBrandName, siteContactEmail } from '@/config/siteVariant'
+import { siteTemplate } from '@/config/siteTemplate'
 import { getCompany } from '@/data/company'
 import {
   getCachedHomepage,
   getCachedPublishedPosts,
   getCachedPublishedProducts,
 } from '@/data/publicContent'
-import type { Product } from '@/payload-types'
-
-type MediaValue = {
-  alt?: string | null
-  url?: string | null
-  sizes?: {
-    square?: { url?: string | null }
-    banner?: { url?: string | null }
-  } | null
-}
-
-const isPublishedProduct = (value: number | Product): value is Product =>
-  typeof value === 'object' && value !== null && value._status === 'published'
-
-const fallbackProducts: Record<
-  SiteLocale,
-  Array<{
-    id: string
-    title: string
-    category: string
-    shortDescription: string
-    images: never[]
-    slug: string
-  }>
-> = {
-  en: [
-    {
-      id: 'sample-1',
-      title: 'Industrial Components',
-      category: 'OEM & Components',
-      shortDescription:
-        'Built to your drawings and quality requirements, with clear production follow-up.',
-      images: [],
-      slug: 'industrial-components',
-    },
-    {
-      id: 'sample-2',
-      title: 'Commercial Equipment',
-      category: 'Business Supply',
-      shortDescription:
-        'Practical equipment options for distributors, projects and commercial buyers.',
-      images: [],
-      slug: 'commercial-equipment',
-    },
-    {
-      id: 'sample-3',
-      title: 'Custom Product Sourcing',
-      category: 'Sourcing Service',
-      shortDescription:
-        'Tell us the specifications and target market; we help identify the right supply solution.',
-      images: [],
-      slug: 'custom-product-sourcing',
-    },
-  ],
-  'zh-CN': [
-    {
-      id: 'sample-1',
-      title: '工业零部件',
-      category: 'OEM 与零部件',
-      shortDescription: '按图纸和质量要求生产，并提供清晰透明的生产进度跟进。',
-      images: [],
-      slug: 'industrial-components',
-    },
-    {
-      id: 'sample-2',
-      title: '商用设备',
-      category: '商业供应',
-      shortDescription: '为经销商、工程项目和商业采购商提供务实的设备方案。',
-      images: [],
-      slug: 'commercial-equipment',
-    },
-    {
-      id: 'sample-3',
-      title: '定制产品采购',
-      category: '采购服务',
-      shortDescription: '告诉我们产品规格和目标市场，我们协助寻找合适的供应方案。',
-      images: [],
-      slug: 'custom-product-sourcing',
-    },
-  ],
-  es: [
-    {
-      id: 'sample-1',
-      title: 'Componentes industriales',
-      category: 'OEM y componentes',
-      shortDescription:
-        'Fabricados según sus planos y requisitos de calidad, con seguimiento claro de la producción.',
-      images: [],
-      slug: 'industrial-components',
-    },
-    {
-      id: 'sample-2',
-      title: 'Equipos comerciales',
-      category: 'Suministro empresarial',
-      shortDescription:
-        'Opciones prácticas para distribuidores, proyectos y compradores comerciales.',
-      images: [],
-      slug: 'commercial-equipment',
-    },
-    {
-      id: 'sample-3',
-      title: 'Abastecimiento personalizado',
-      category: 'Servicio de abastecimiento',
-      shortDescription:
-        'Comparta las especificaciones y el mercado objetivo; le ayudaremos a encontrar la solución adecuada.',
-      images: [],
-      slug: 'custom-product-sourcing',
-    },
-  ],
-  'zh-TW': [
-    { id: 'sample-1', title: '工業零組件', category: 'OEM 與零組件', shortDescription: '依照圖紙和品質要求生產，並提供清晰透明的生產進度跟進。', images: [], slug: 'industrial-components' },
-    { id: 'sample-2', title: '商用設備', category: '商業供應', shortDescription: '為經銷商、工程專案和商業採購商提供務實的設備方案。', images: [], slug: 'commercial-equipment' },
-    { id: 'sample-3', title: '客製化產品採購', category: '採購服務', shortDescription: '告訴我們產品規格和目標市場，我們協助尋找合適的供應方案。', images: [], slug: 'custom-product-sourcing' },
-  ],
-  de: [
-    { id: 'sample-1', title: 'Industriekomponenten', category: 'OEM & Komponenten', shortDescription: 'Fertigung nach Ihren Zeichnungen und Qualitätsanforderungen mit klarer Produktionsverfolgung.', images: [], slug: 'industrial-components' },
-    { id: 'sample-2', title: 'Gewerbliche Ausrüstung', category: 'Geschäftsbedarf', shortDescription: 'Praktische Ausrüstung für Händler, Projekte und gewerbliche Einkäufer.', images: [], slug: 'commercial-equipment' },
-    { id: 'sample-3', title: 'Individuelle Produktbeschaffung', category: 'Beschaffungsservice', shortDescription: 'Nennen Sie Spezifikationen und Zielmarkt; wir finden die passende Lieferlösung.', images: [], slug: 'custom-product-sourcing' },
-  ],
-  pt: [
-    { id: 'sample-1', title: 'Componentes industriais', category: 'OEM e componentes', shortDescription: 'Produzidos segundo os seus desenhos e requisitos de qualidade, com acompanhamento claro.', images: [], slug: 'industrial-components' },
-    { id: 'sample-2', title: 'Equipamento comercial', category: 'Fornecimento empresarial', shortDescription: 'Opções práticas para distribuidores, projetos e compradores comerciais.', images: [], slug: 'commercial-equipment' },
-    { id: 'sample-3', title: 'Fornecimento personalizado', category: 'Serviço de fornecimento', shortDescription: 'Partilhe as especificações e o mercado-alvo; ajudamos a encontrar a solução adequada.', images: [], slug: 'custom-product-sourcing' },
-  ],
-  ko: [
-    { id: 'sample-1', title: '산업용 부품', category: 'OEM 및 부품', shortDescription: '도면과 품질 요구 사항에 맞춰 생산하고 진행 상황을 명확하게 안내합니다.', images: [], slug: 'industrial-components' },
-    { id: 'sample-2', title: '상업용 장비', category: '비즈니스 공급', shortDescription: '유통업체, 프로젝트 및 상업 구매자를 위한 실용적인 장비 옵션입니다.', images: [], slug: 'commercial-equipment' },
-    { id: 'sample-3', title: '맞춤형 제품 소싱', category: '소싱 서비스', shortDescription: '사양과 목표 시장을 알려주시면 적합한 공급 솔루션을 찾아드립니다.', images: [], slug: 'custom-product-sourcing' },
-  ],
-  ar: [
-    { id: 'sample-1', title: 'مكونات صناعية', category: 'OEM ومكونات', shortDescription: 'تصنيع وفق رسوماتك ومتطلبات الجودة مع متابعة واضحة للإنتاج.', images: [], slug: 'industrial-components' },
-    { id: 'sample-2', title: 'معدات تجارية', category: 'توريد تجاري', shortDescription: 'خيارات عملية للموزعين والمشاريع والمشترين التجاريين.', images: [], slug: 'commercial-equipment' },
-    { id: 'sample-3', title: 'توريد منتجات مخصصة', category: 'خدمة التوريد', shortDescription: 'شارك المواصفات والسوق المستهدف وسنساعدك في إيجاد حل التوريد المناسب.', images: [], slug: 'custom-product-sourcing' },
-  ],
-  he: [
-    { id: 'sample-1', title: 'רכיבים תעשייתיים', category: 'OEM ורכיבים', shortDescription: 'ייצור לפי השרטוטים ודרישות האיכות שלכם, עם מעקב ייצור ברור.', images: [], slug: 'industrial-components' },
-    { id: 'sample-2', title: 'ציוד מסחרי', category: 'אספקה עסקית', shortDescription: 'אפשרויות ציוד מעשיות למפיצים, לפרויקטים ולקונים מסחריים.', images: [], slug: 'commercial-equipment' },
-    { id: 'sample-3', title: 'רכש מוצרים מותאם', category: 'שירות רכש', shortDescription: 'שתפו מפרט ושוק יעד ונעזור למצוא את פתרון האספקה המתאים.', images: [], slug: 'custom-product-sourcing' },
-  ],
-}
+import { getMessages, isSiteLocale, localeMeta, locales, type SiteLocale } from '@/i18n/config'
+import { isLocaleTranslationComplete } from '@/i18n/translationWorkflow'
+import {
+  CatalogHomeTemplate,
+  SolutionHomeTemplate,
+  TrustHomeTemplate,
+  type HomeTemplateData,
+  type TemplateProduct,
+} from '@/templates/HomeTemplates'
+import type { Media, Product } from '@/payload-types'
 
 type HomePageProps = {
   params: Promise<{ locale: string }>
 }
 
+type MediaValue = Pick<Media, 'alt' | 'url' | 'sizes'>
+
 export const revalidate = 300
-// The root layout reads x-site-locale to render the correct document lang/dir.
-// force-static would make headers() return an empty value during rendering,
-// which leaves every statically generated locale with the default `en` HTML.
 export const dynamic = 'force-dynamic'
 
 function resolveLocale(value: string): SiteLocale {
   return isSiteLocale(value) ? value : 'en'
 }
 
-export async function generateMetadata({ params }: HomePageProps): Promise<Metadata> {
-  const locale = resolveLocale((await params).locale)
-  const t = getMessages(locale)
-  const company = await getCompany(locale)
-  return {
-      title: `${company.brandName || siteBrandName} | ${t.builtFor}`,
-      description: company.heroDescription || t.heroDescription,
-    alternates: {
-      canonical: `/${locale}`,
-      languages: {
-        ...Object.fromEntries(
-          locales.map((item) => [localeMeta[item].htmlLang, `/${item}`]),
-        ),
-        'x-default': '/en',
-      },
-    },
-      robots: isLocaleTranslationComplete(company, locale)
-        ? undefined
-        : { follow: true, index: false },
-      openGraph: {
-        description: company.heroDescription || t.heroDescription,
-        siteName: company.brandName || siteBrandName,
-        title: `${company.brandName || siteBrandName} | ${t.builtFor}`,
-        type: 'website',
-        url: `/${locale}`,
-      },
-      twitter: {
-        card: 'summary_large_image',
-        description: company.heroDescription || t.heroDescription,
-        title: `${company.brandName || siteBrandName} | ${t.builtFor}`,
-      },
-  }
+function nonEmpty(value: unknown, fallback: string) {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback
 }
 
 function getMedia(value: unknown): MediaValue | null {
@@ -217,9 +42,59 @@ function getMedia(value: unknown): MediaValue | null {
 
 function getMediaVariant(media: MediaValue | null, variant: 'banner' | 'square') {
   const variantURL = media?.sizes?.[variant]?.url
-  return typeof variantURL === 'string' && variantURL.length > 0
-    ? variantURL
-    : media?.url || null
+  return typeof variantURL === 'string' && variantURL.length > 0 ? variantURL : media?.url || null
+}
+
+function toTemplateProduct(
+  product: Product,
+  labels: { product: string; productsIntro: string },
+): TemplateProduct {
+  const firstImage = Array.isArray(product.images) ? getMedia(product.images[0]) : null
+  const imageURL = getMediaVariant(firstImage, 'square')
+  return {
+    id: product.id,
+    title: nonEmpty(product.title, labels.product),
+    category: nonEmpty(product.category, labels.product),
+    shortDescription: nonEmpty(product.shortDescription, labels.productsIntro),
+    slug: product.slug,
+    image: imageURL
+      ? { alt: nonEmpty(firstImage?.alt, product.title), url: imageURL }
+      : null,
+  }
+}
+
+export async function generateMetadata({ params }: HomePageProps): Promise<Metadata> {
+  const locale = resolveLocale((await params).locale)
+  const t = getMessages(locale)
+  const company = await getCompany(locale)
+  const brandName = nonEmpty(company.brandName, siteBrandName)
+  const description = nonEmpty(company.heroDescription, t.heroDescription)
+  return {
+    title: `${brandName} | ${t.builtFor}`,
+    description,
+    alternates: {
+      canonical: `/${locale}`,
+      languages: {
+        ...Object.fromEntries(locales.map((item) => [localeMeta[item].htmlLang, `/${item}`])),
+        'x-default': '/en',
+      },
+    },
+    robots: isLocaleTranslationComplete(company, locale)
+      ? undefined
+      : { follow: true, index: false },
+    openGraph: {
+      description,
+      siteName: brandName,
+      title: `${brandName} | ${t.builtFor}`,
+      type: 'website',
+      url: `/${locale}`,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      description,
+      title: `${brandName} | ${t.builtFor}`,
+    },
+  }
 }
 
 export default async function HomePage({ params }: HomePageProps) {
@@ -232,252 +107,103 @@ export default async function HomePage({ params }: HomePageProps) {
     getCachedHomepage(locale),
   ])
 
-  const selectedHomepageProducts = (homepage.featuredProducts || []).filter(isPublishedProduct)
-  const homepageProducts = selectedHomepageProducts.length
-    ? selectedHomepageProducts
-    : isDemoSite
-      ? fallbackProducts[locale]
-      : []
-  const products = productResult.docs.length
-    ? productResult.docs
-    : isDemoSite
-      ? fallbackProducts[locale]
-      : []
-  const brandName = company.brandName || siteBrandName
-  const email = company.contact?.email || siteContactEmail
-  const highlights = company.highlights?.length
-    ? company.highlights
-    : [
-        { title: t.clearCommunication, description: t.clearCommunicationText },
-        { title: t.qualityFollowup, description: t.qualityFollowupText },
-        { title: t.exportReady, description: t.exportReadyText },
-      ]
+  const labels = {
+    about: t.about,
+    aboutText: t.aboutText,
+    aboutTitle: t.aboutTitle,
+    address: t.address,
+    aiAssistant: t.aiAssistant,
+    articleFallback: t.articleFallback,
+    builtFor: t.builtFor,
+    chatCorner: t.chatCorner,
+    clearCommunication: t.clearCommunication,
+    clearCommunicationText: t.clearCommunicationText,
+    company: t.company,
+    confirmDetails: t.confirmDetails,
+    confirmDetailsText: t.confirmDetailsText,
+    contact: t.contact,
+    contactIntro: t.contactIntro,
+    contactTitle: t.contactTitle,
+    directResponse: t.directResponse,
+    email: t.email,
+    exploreProducts: t.exploreProducts,
+    exportReady: t.exportReady,
+    exportReadyText: t.exportReadyText,
+    image: t.productImage,
+    insights: t.insights,
+    latestArticle: t.latestArticle,
+    oemSupport: t.oemSupport,
+    phone: t.phone,
+    productionDelivery: t.productionDelivery,
+    productionDeliveryText: t.productionDeliveryText,
+    product: t.product,
+    products: t.products,
+    productsIntro: t.productsIntro,
+    productsTitle: t.productsTitle,
+    readArticle: t.readArticle,
+    requestDetails: t.requestDetails,
+    rights: t.rights,
+    salesEnquiry: t.salesEnquiry,
+    sendEnquiry: t.sendEnquiry,
+    shareRequest: t.shareRequest,
+    shareRequestText: t.shareRequestText,
+    simpleProcess: t.simpleProcess,
+    usefulNotes: t.usefulNotes,
+    viewAll: t.viewAll,
+    viewCatalog: t.products,
+    viewProduct: t.requestDetails,
+    worldwide: t.worldwide,
+  } satisfies HomeTemplateData['labels']
 
-  return (
-    <main>
-      {homepageProducts.length > 0 && <section className="hero-ad-section">
-        <div className="trade-shell">
-          <HeroProductCarousel
-            labels={{ image: t.productImage, region: t.ourProducts, requestDetails: t.requestDetails }}
-            locale={locale}
-            products={homepageProducts.map((product) => {
-              const firstImage = Array.isArray(product.images) ? getMedia(product.images[0]) : null
-              const bannerURL = getMediaVariant(firstImage, 'banner')
-              return {
-                id: product.id,
-                title: product.title || t.product,
-                category: product.category || t.product,
-                shortDescription: product.shortDescription || t.productsIntro,
-                slug: product.slug,
-                image: bannerURL
-                  ? { alt: firstImage?.alt || product.title, url: bannerURL }
-                  : demoProductImages[product.slug] || null,
-              }
-            })}
-          />
-        </div>
-      </section>}
+  const productByID = new Map(productResult.docs.map((product) => [String(product.id), product]))
+  const selectedHomepageProducts = (homepage.featuredProducts || [])
+    .map((value) =>
+      typeof value === 'object' && value
+        ? productByID.get(String(value.id)) || value
+        : productByID.get(String(value)),
+    )
+    .filter((value): value is Product => Boolean(value && value._status === 'published'))
+  const sourceProducts = productResult.docs
+  const products = sourceProducts.map((product) => toTemplateProduct(product, labels))
+  const homepageProducts = (
+    selectedHomepageProducts.length ? selectedHomepageProducts : sourceProducts.slice(0, 3)
+  ).map((product) => toTemplateProduct(product, labels))
 
-      <section className="trade-hero trade-hero--moved">
-        <div className="trade-shell trade-hero__grid">
-          <div>
-            <p className="trade-eyebrow">
-              <Globe2 size={16} /> {t.builtFor}
-            </p>
-            <h1>{company.heroTitle || t.heroTitle}</h1>
-            <p className="trade-hero__lead">{company.heroDescription || t.heroDescription}</p>
-            <div className="trade-actions">
-              <a className="trade-button trade-button--primary" href="#products">
-                {t.exploreProducts} <ArrowRight size={18} />
-              </a>
-              <a className="trade-button trade-button--secondary" href={email ? `mailto:${email}` : '#contact'}>
-                {t.sendEnquiry}
-              </a>
-            </div>
-            <div className="trade-trust-row">
-              <span>
-                <Check size={16} /> {t.directResponse}
-              </span>
-              <span>
-                <Check size={16} /> {t.oemSupport}
-              </span>
-              <span>
-                <Check size={16} /> {t.worldwide}
-              </span>
-            </div>
-          </div>
-          <aside className="trade-hero__card">
-            <div className="trade-hero__card-top">
-              <PackageCheck size={28} />
-              <span>{t.simpleProcess}</span>
-            </div>
-            <ol>
-              <li>
-                <b>01</b>
-                <span>
-                  <strong>{t.shareRequest}</strong>
-                  <small>{t.shareRequestText}</small>
-                </span>
-              </li>
-              <li>
-                <b>02</b>
-                <span>
-                  <strong>{t.confirmDetails}</strong>
-                  <small>{t.confirmDetailsText}</small>
-                </span>
-              </li>
-              <li>
-                <b>03</b>
-                <span>
-                  <strong>{t.productionDelivery}</strong>
-                  <small>{t.productionDeliveryText}</small>
-                </span>
-              </li>
-            </ol>
-          </aside>
-        </div>
-      </section>
+  const brandName = nonEmpty(company.brandName, siteBrandName)
+  const email = nonEmpty(company.contact?.email, siteContactEmail)
+  const highlights = (company.highlights || [])
+    .map((item) => ({
+      id: item.id,
+      title: nonEmpty(item.title, ''),
+      description: nonEmpty(item.description, ''),
+    }))
+    .filter((item) => item.title && item.description)
+  const data: HomeTemplateData = {
+    aboutDescription: nonEmpty(company.aboutDescription, t.aboutText),
+    aboutTitle: nonEmpty(company.aboutTitle, t.aboutTitle),
+    address: nonEmpty(company.contact?.address, ''),
+    brandName,
+    email,
+    heroDescription: nonEmpty(company.heroDescription, t.heroDescription),
+    heroTitle: nonEmpty(company.heroTitle, t.heroTitle),
+    highlights,
+    homepageProducts,
+    labels,
+    locale,
+    phone: nonEmpty(company.contact?.phone, ''),
+    posts: postResult.docs.map((post) => ({
+      excerpt: post.excerpt,
+      id: post.id,
+      metaDescription: post.meta?.description,
+      publishedAt: post.publishedAt,
+      slug: post.slug,
+      title: post.title,
+    })),
+    products,
+    wechat: nonEmpty(company.contact?.wechat, ''),
+  }
 
-      <section className="trade-section" id="products">
-        <div className="trade-shell">
-          <div className="trade-section__heading">
-            <div>
-              <p className="trade-kicker">{t.ourProducts}</p>
-              <h2>{t.productsTitle}</h2>
-            </div>
-            <p>{t.productsIntro}</p>
-          </div>
-          {products.length > 0 && <ProductCarousel
-            labels={{ image: t.productImage, region: t.ourProducts, requestDetails: t.requestDetails }}
-            locale={locale}
-            products={products.map((product) => {
-              const firstImage = Array.isArray(product.images) ? getMedia(product.images[0]) : null
-              const squareURL = getMediaVariant(firstImage, 'square')
-              return {
-                id: product.id,
-                title: product.title,
-                category: product.category || t.product,
-                shortDescription: product.shortDescription,
-                slug: product.slug,
-                image: squareURL
-                  ? { alt: firstImage?.alt || product.title, url: squareURL }
-                  : demoProductImages[product.slug] || null,
-              }
-            })}
-          />}
-        </div>
-      </section>
-
-      <section className="trade-about" id="about">
-        <div className="trade-shell trade-about__grid">
-          <div>
-            <p className="trade-kicker">
-              {t.about} {brandName}
-            </p>
-            <h2>{company.aboutTitle || t.aboutTitle}</h2>
-            <p>{company.aboutDescription || t.aboutText}</p>
-          </div>
-          <div className="trade-highlights">
-            {highlights.map((item, index) => (
-              <article key={item.id || index}>
-                <span>0{index + 1}</span>
-                <div>
-                  <h3>{item.title}</h3>
-                  <p>{item.description}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {postResult.docs.length > 0 && (
-        <section className="trade-section trade-blog" id="insights">
-          <div className="trade-shell">
-            <div className="trade-section__heading">
-              <div>
-                <p className="trade-kicker">{t.insights}</p>
-                <h2>{t.usefulNotes}</h2>
-              </div>
-              <Link href={`/${locale}/posts`}>
-                {t.viewAll} <ArrowRight size={16} />
-              </Link>
-            </div>
-            <div className="trade-blog__grid">
-              {postResult.docs.map((post) => (
-                <Link className="trade-blog__card" href={`/${locale}/posts/${post.slug}`} key={post.id}>
-                  <time>
-                    {post.publishedAt
-                      ? new Date(post.publishedAt).toLocaleDateString(
-                          localeMeta[locale].htmlLang,
-                          { month: 'short', day: 'numeric', year: 'numeric' },
-                        )
-                      : t.latestArticle}
-                  </time>
-                  <h3>{post.title}</h3>
-                  <p>{post.excerpt || post.meta?.description || t.articleFallback}</p>
-                  <span>
-                    {t.readArticle} <ArrowRight size={15} />
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section className="trade-contact" id="contact">
-        <div className="trade-shell trade-contact__grid">
-          <div>
-            <p className="trade-kicker">{t.contact}</p>
-            <h2>{t.contactTitle}</h2>
-            <p>{t.contactIntro}</p>
-          </div>
-          <div className="trade-contact__details">
-            {email && <a href={`mailto:${email}`}>
-              <Mail size={20} />
-              <span>
-                <small>{t.email}</small>
-                {email}
-              </span>
-            </a>}
-            {company.contact?.phone && (
-              <a href={`tel:${company.contact.phone}`}>
-                <Phone size={20} />
-                <span>
-                  <small>{t.phone}</small>
-                  {company.contact.phone}
-                </span>
-              </a>
-            )}
-            {company.contact?.address && (
-              <div>
-                <MapPin size={20} />
-                <span>
-                  <small>{t.address}</small>
-                  {company.contact.address}
-                </span>
-              </div>
-            )}
-            {company.contact?.wechat && (
-              <a href="weixin://">
-                <MessageCircle size={20} />
-                <span>
-                  <small>WeChat</small>
-                  {company.contact.wechat}
-                </span>
-              </a>
-            )}
-            <button data-open-chat="true" type="button">
-              <MessageCircle size={20} />
-              <span>
-                <small>{t.aiAssistant}</small>
-                {t.chatCorner}
-              </span>
-            </button>
-          </div>
-        </div>
-      </section>
-    </main>
-  )
+  if (siteTemplate === 'catalog') return <CatalogHomeTemplate {...data} />
+  if (siteTemplate === 'solution') return <SolutionHomeTemplate {...data} />
+  return <TrustHomeTemplate {...data} />
 }

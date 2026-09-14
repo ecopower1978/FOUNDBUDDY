@@ -11,7 +11,7 @@ export async function Footer({ locale }: { locale: SiteLocale }) {
     <footer className="trade-footer">
       <div className="trade-shell trade-footer__grid">
         <div><strong>{brandName}</strong><p>{t.footerTagline}</p></div>
-        <div><span>{t.explore}</span><a href={`/${locale}#products`}>{t.products}</a><a href={`/${locale}/posts`}>{t.insights}</a></div>
+        <div><span>{t.explore}</span><a href={`/${locale}/products`}>{t.products}</a><a href={`/${locale}/posts`}>{t.insights}</a></div>
         <div><span>{t.company}</span><a href={`/${locale}#about`}>{t.aboutUs}</a><a href={`/${locale}#contact`}>{t.contact}</a></div>
         {email && <div><span>{t.salesEnquiry}</span><a href={`mailto:${email}`}>{email}</a>{company.contact?.phone && <p>{company.contact.phone}</p>}</div>}
       </div>

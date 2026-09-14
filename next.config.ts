@@ -51,7 +51,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   `connect-src ${connectOrigins.join(' ')}`,
   "font-src 'self' data:",
-  "img-src 'self' blob: data: https:",
+  `img-src 'self' blob: data: https:${process.env.NODE_ENV === 'development' ? ' http:' : ''}`,
   "media-src 'self' blob: https:",
   "object-src 'none'",
   "base-uri 'self'",

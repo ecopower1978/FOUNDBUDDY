@@ -8,6 +8,7 @@ import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { SiteLocale } from '@/i18n/config'
+import { isLocalMediaURL } from '@/utilities/isLocalMediaURL'
 
 export type CarouselProduct = {
   id: number | string
@@ -90,6 +91,7 @@ export function ProductCarousel({ labels, locale, products }: Props) {
                       fill
                       sizes="(max-width: 720px) 88vw, (max-width: 1100px) 45vw, 30vw"
                       src={product.image.url}
+                      unoptimized={isLocalMediaURL(product.image.url)}
                     />
                   ) : (
                     <div className="product-card__placeholder"><PackageCheck size={34} /><span>{labels.image}</span></div>

@@ -8,6 +8,7 @@ import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { SiteLocale } from '@/i18n/config'
+import { isLocalMediaURL } from '@/utilities/isLocalMediaURL'
 
 export type HeroAdProduct = {
   id: number | string
@@ -111,6 +112,7 @@ export function HeroProductCarousel({ labels, locale, products }: Props) {
                   priority={index === 0}
                   sizes="(max-width: 768px) 100vw, 1200px"
                   src={product.image.url}
+                  unoptimized={isLocalMediaURL(product.image.url)}
                 />
               ) : (
                 <div className="hero-ad__placeholder">

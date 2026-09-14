@@ -6,6 +6,7 @@ import { GeistSans } from 'geist/font/sans'
 import React from 'react'
 
 import { env } from '@/config/env'
+import { DocumentLocaleSync } from '@/components/DocumentLocaleSync'
 import { isSiteLocale, localeMeta } from '@/i18n/config'
 import { getSiteLocale } from '@/i18n/server'
 import { Providers } from '@/providers'
@@ -40,7 +41,10 @@ export default async function RootLayout({
         <link href="/favicon.svg" rel="icon" type="image/svg+xml" />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <DocumentLocaleSync />
+          {children}
+        </Providers>
       </body>
     </html>
   )

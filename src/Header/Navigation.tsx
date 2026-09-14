@@ -65,7 +65,7 @@ export function HeaderNavigation({
   const close = () => setOpen(false)
   const links = (
     <>
-      <Link href={`/${locale}#products`} onClick={close}>{labels.products}</Link>
+      <Link href={`/${locale}/products`} onClick={close}>{labels.products}</Link>
       <Link href={`/${locale}#about`} onClick={close}>{labels.company}</Link>
       <Link href={`/${locale}/posts`} onClick={close}>{labels.insights}</Link>
       <LanguageSwitcher label={labels.language} locale={locale} />

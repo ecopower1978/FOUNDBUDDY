@@ -4,6 +4,8 @@
 !.env.example
 .next/
 .removed-assets/
+.workbuddy/
+deliverables/
 .pnpm-store/
 .turbo/
 .vercel/

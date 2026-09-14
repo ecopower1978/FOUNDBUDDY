@@ -17,6 +17,7 @@ import {
   getCachedPublishedProduct,
   getCachedRelatedProducts,
 } from '@/data/publicContent'
+import { isLocalMediaURL } from '@/utilities/isLocalMediaURL'
 
 // Keep the request locale available to the root layout for correct HTML
 // lang/dir attributes; product data remains cached by the data layer.
@@ -185,7 +186,7 @@ export default async function ProductDetailPage({ params }: Args) {
       />
       <section className="product-detail__hero">
         <div className="trade-shell">
-          <Link className="product-detail__back" href={`/${locale}#products`}>
+          <Link className="product-detail__back" href={`/${locale}/products`}>
             <ArrowLeft size={16} /> {text.back}
           </Link>
 
@@ -288,6 +289,7 @@ export default async function ProductDetailPage({ params }: Args) {
                           fill
                           sizes="(max-width: 768px) 100vw, 33vw"
                           src={image.url}
+                          unoptimized={isLocalMediaURL(image.url)}
                         />
                       ) : (
                         <div className="product-card__placeholder">

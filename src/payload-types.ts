@@ -189,7 +189,7 @@ export interface Product {
   workflowState: 'draft' | 'unlisted';
   translationSourceHash?: string | null;
   /**
-   * 保存中文原文后系统会在后台翻译。失败语言可从编辑页右侧重新提交。
+   * 保存中文原文后系统会按本地词典生成译文。未命中内容会保留原文并标记为部分完成。
    */
   translationStatus?:
     | {
@@ -359,7 +359,7 @@ export interface Post {
   slug: string;
   translationSourceHash?: string | null;
   /**
-   * 保存中文原文后系统会在后台翻译。失败语言可从编辑页右侧重新提交。
+   * 保存中文原文后系统会按本地词典生成译文。未命中内容会保留原文并标记为部分完成。
    */
   translationStatus?:
     | {
@@ -1030,7 +1030,7 @@ export interface Company {
   };
   translationSourceHash?: string | null;
   /**
-   * 保存中文原文后系统会在后台翻译。失败语言可从编辑页右侧重新提交。
+   * 保存中文原文后系统会按本地词典生成译文。未命中内容会保留原文并标记为部分完成。
    */
   translationStatus?:
     | {

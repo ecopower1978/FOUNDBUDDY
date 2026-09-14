@@ -5,6 +5,10 @@ import { getPayload } from 'payload'
 import type { SiteLocale } from '@/i18n/config'
 
 const PUBLIC_CONTENT_REVALIDATE_SECONDS = 300
+// Bump when a local server snapshot or a content-shape migration changes the
+// media URLs returned to the public pages. This prevents a stale Next data
+// cache from masking the current server-backed content during QA.
+const PUBLIC_CONTENT_CACHE_VERSION = 'server-data-v2'
 
 export const getCachedPublishedProducts = (locale: SiteLocale) =>
   unstable_cache(
@@ -20,7 +24,7 @@ export const getCachedPublishedProducts = (locale: SiteLocale) =>
         where: { _status: { equals: 'published' } },
       })
     },
-    ['published-products', locale],
+    ['published-products', PUBLIC_CONTENT_CACHE_VERSION, locale],
     {
       revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS,
       tags: [`product:${locale}`],
@@ -42,7 +46,7 @@ export const getCachedPublishedPosts = (locale: SiteLocale, limit = 3, page = 1)
         where: { _status: { equals: 'published' } },
       })
     },
-    ['published-posts', locale, String(limit), String(page)],
+    ['published-posts', PUBLIC_CONTENT_CACHE_VERSION, locale, String(limit), String(page)],
     {
       revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS,
       tags: [`post:${locale}`],
@@ -60,7 +64,7 @@ export const getCachedHomepage = (locale: SiteLocale) =>
         locale,
       })
     },
-    ['homepage', locale],
+    ['homepage', PUBLIC_CONTENT_CACHE_VERSION, locale],
     {
       revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS,
       tags: [`homepage:${locale}`],
@@ -86,7 +90,7 @@ export const getCachedPublishedProduct = (locale: SiteLocale, slug: string) =>
 
       return result.docs[0] || null
     },
-    ['published-product', locale, slug],
+    ['published-product', PUBLIC_CONTENT_CACHE_VERSION, locale, slug],
     {
       revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS,
       tags: [`product:${locale}`],
@@ -116,7 +120,7 @@ export const getCachedRelatedProducts = (
         },
       })
     },
-    ['related-products', locale, String(productId), category || 'all'],
+    ['related-products', PUBLIC_CONTENT_CACHE_VERSION, locale, String(productId), category || 'all'],
     {
       revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS,
       tags: [`product:${locale}`],
@@ -142,7 +146,7 @@ export const getCachedPublishedPost = (locale: SiteLocale, slug: string) =>
 
       return result.docs[0] || null
     },
-    ['published-post', locale, slug],
+    ['published-post', PUBLIC_CONTENT_CACHE_VERSION, locale, slug],
     {
       revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS,
       tags: [`post:${locale}`],

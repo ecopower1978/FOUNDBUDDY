@@ -1,10 +1,119 @@
 # 生产部署操作手册
 
-本文以一台安装了 Docker 的 Linux 服务器为例，说明从基础设施准备到首次上线、日常更新和回滚的完整流程。生产环境推荐使用 Docker 镜像部署；仓库中的 `docker-compose.yml` 只用于本地开发，不应直接用于生产。
+本文包含两条生产部署路径：本项目当前线上使用的 Vercel 部署，以及适用于自托管 Linux 服务器的 Docker 部署。仓库中的 `docker-compose.yml` 只用于本地开发，不应直接用于生产。
 
-## 1. 部署架构
+如果操作当前线上环境，请先阅读第 0 节；后面的 Docker 构建、迁移和反向代理章节适用于自托管方案，不是当前 Vercel 生产环境的必经步骤。
 
-生产环境至少需要以下组件：
+## 0. 本项目当前线上部署快照（Vercel）
+
+以下记录对应 2026-08-17 的已验证生产环境。套餐、区域和部署别名可能变化，操作前以 Vercel 控制台当前显示为准。
+
+### 0.1 项目和发布信息
+
+- 部署平台：Vercel；项目名：`foundbuddy`；生产域名：<https://www.foundbuddy.com>；
+- Vercel 关联 GitHub 仓库：`Alex-Wang-88/foundbuddy`，生产分支：`main`；本地仓库中对应的远程名称是 `vercel-mirror`；
+- 本次已验证提交：`2cc4fcd`（修复多语言文档方向）；性能优化提交：`0f5bf68`；
+- 本次生产部署：`dpl_4xA4wPtq8A4abQsX66fd1JRhuHMJ`，状态：`Ready`；
+- 本次部署别名：<https://foundbuddy-qiizq0l87-alex-wang-88-s-projects.vercel.app>。日常访问和验证应使用正式域名，不要依赖临时别名；
+- Vercel 项目 ID：`prj_3lceqGEqFajMNWPiBQqzrCS0zywt`；团队 ID：`team_GW5mxynTV0XOwvPdRIWP4eFG`。
+
+### 0.2 Vercel 发布流程
+
+Git 集成开启时，推送 `main` 会触发生产部署。推荐的发布顺序如下：
+
+1. 在本地完成 lint、类型检查、测试和生产构建；
+2. 确认目标提交已经推送到 Vercel 关联仓库的 `main`；
+3. 在 Vercel Deployments 中等待构建完成，确认状态为 `Ready`；
+4. 如果本次变更包含环境变量或 Marketplace 资源，保存变量后必须重新部署，旧部署不会自动读取新变量；
+5. 通过第 0.4 节的健康检查和冒烟测试后，再通知用户切换或继续使用生产环境。
+
+需要使用 CLI 时，可使用预构建发布流程：
+
+```bash
+vercel pull --yes --environment=production
+vercel build --prod
+vercel deploy --prebuilt --prod
+```
+
+检查部署和日志：
+
+```bash
+vercel ls
+vercel inspect <deployment-url-or-id>
+vercel logs <deployment-url-or-id> --level error
+```
+
+CLI 或 CI 中只通过 Secret Manager 提供 `VERCEL_TOKEN`，不要把 Token、数据库连接串或 `REDIS_URL` 写入仓库、截图或日志。
+
+### 0.3 Redis Marketplace 配置
+
+本次通过 Vercel Marketplace 创建并连接了官方 Redis Cloud 资源：
+
+- 资源名：`foundbuddy-redis`；
+- 套餐：`Free`，30 MB；
+- 区域：Washington, D.C.（Vercel 区域标识 `iad1`）；
+- 当前能力快照：RAM-only、无持久化、无高可用，100 ops/sec、5 GB/月网络、30 个连接；
+- 连接项目：Vercel 项目 `foundbuddy`；
+- 环境变量：`REDIS_URL`，标记为 Sensitive，已配置到 Production 和 Preview；Development 未使用线上变量。
+
+套餐和限额可能随 Marketplace 规则变化。生产业务量增加或需要持久化、高可用时，应重新评估套餐，不要把当前免费规格当作容量承诺。
+
+Redis 在本项目中用于限流和幂等状态。它还可以作为多实例共享状态的基础，但不会自动缓存所有后台页面；后台页面的主要耗时仍可能来自鉴权和 PostgreSQL 查询。
+
+本地开发使用 Docker Compose 中独立的 Redis：
+
+```bash
+docker compose up -d redis
+docker compose ps redis
+docker compose exec redis redis-cli ping
+```
+
+最后一条命令应返回 `PONG`。本地的 `REDIS_URL` 通常为 `redis://127.0.0.1:6379`，不要把本地连接串误填到生产环境。
+
+### 0.4 线上验证
+
+部署完成后先检查存活和就绪接口：
+
+```bash
+curl --fail https://www.foundbuddy.com/api/health/live
+curl --fail https://www.foundbuddy.com/api/health/ready
+```
+
+`/api/health/ready` 会检查 PostgreSQL、迁移状态、对象存储、Redis 和自动翻译服务配置。修复版本部署后应看到：
+
+```json
+{
+  "checks": {
+    "database": "connected",
+    "migrations": "current",
+    "storage": "connected",
+    "redis": "PONG",
+    "translation": "configured"
+  },
+  "status": "ready"
+}
+```
+
+生产验证必须看到 Redis 为 `PONG`。如果出现 `development-no-redis`，优先检查 Vercel 中 `REDIS_URL` 是否配置到了当前环境，并重新部署；不要只依据页面能打开就判定发布完成。
+
+随后至少验证：首页、文章列表、管理员登录、后台读写、图片加载和浏览器控制台。完整清单见第 10 节和 [acceptance-checklist.md](acceptance-checklist.md)。
+
+### 0.5 本次性能验证记录
+
+2026-08-17 使用同一生产域名进行三次线上 TTFB 测量，网络和冷/热缓存会造成波动，以下数字用于发布对比，不是 SLA：
+
+| 路由 | 未优化时实测 | 本次发布后实测 | 结论 |
+| --- | ---: | ---: | --- |
+| `/en` | 约 7.64 秒 | 1.04–1.23 秒 | 约快 85%，约 6.6 倍 |
+| `/en/posts` | 1–2.3 秒 | 1.07–2.17 秒 | 基本持平，仍受数据库查询影响 |
+| `/admin` | 2.1–6.8 秒 | 1.25–2.60 秒 | 后台明显改善，约快 30%–70% |
+| `/api/health/ready` | 约 5.73 秒 | 1.74–3.41 秒 | 约快 69%，其中包含完整依赖检查 |
+
+首页的主要收益来自静态化、缓存和查询优化；Redis 接入主要解决生产多实例下的共享限流、幂等和连接健康验证，不能单独解释所有页面的速度变化。
+
+## 1. 部署架构（自托管 Docker 方案）
+
+如果不使用第 0 节的 Vercel 方案，而是自行维护 Linux 服务器，生产环境至少需要以下组件：
 
 - 应用容器：Next.js 16 + Payload 3，容器内监听 `3000` 端口；
 - PostgreSQL：保存业务数据和 Payload 迁移记录；
@@ -113,6 +222,10 @@ S3_FORCE_PATH_STYLE=false
 
 REDIS_URL=rediss://default:replace-me@redis.internal:6379
 
+# 自动翻译（生产环境必填）
+LIBRETRANSLATE_URL=https://translate.company.tld
+LIBRETRANSLATE_API_KEY=replace-me-if-required
+
 SMTP_HOST=smtp.company.tld
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -134,7 +247,8 @@ CSP_REPORT_ONLY=true
 - `S3_FORCE_PATH_STYLE` 是否启用由对象存储服务商决定；
 - 使用 SMTPS 直连端口（通常为 465）时将 `SMTP_SECURE` 设为 `true`；
 - `SITE_VARIANT=blank` 用于正式空白站点；不要在真实生产数据库中运行演示数据种子；
-- LibreTranslate、AI 客服和博客发布接口均为可选集成，变量说明见 [`.env.example`](../.env.example)。
+- 自动翻译在多语言生产站点中是必需依赖；`LIBRETRANSLATE_URL` 必须指向部署环境可访问的服务，API Key 按服务商要求配置。
+- AI 客服和博客发布接口仍为可选集成，其他变量说明见 [`.env.example`](../.env.example)。
 
 设置环境文件权限：
 
@@ -305,7 +419,7 @@ curl --fail https://www.company.tld/api/health/live
 curl --fail https://www.company.tld/api/health/ready
 ```
 
-`ready` 接口会检查 PostgreSQL、数据库迁移、S3 和 Redis。返回 `503` 时不要切换生产流量。
+`ready` 接口会检查 PostgreSQL、数据库迁移、S3、Redis 和自动翻译服务配置。返回 `503` 时不要切换生产流量。
 
 上线前还需人工验证：
 
@@ -322,7 +436,7 @@ curl --fail https://www.company.tld/api/health/ready
 
 ## 11. 定时任务
 
-翻译任务通过受保护接口执行：
+翻译任务由仓库中的 Vercel Cron 每天 02:00 UTC 调用一次 `GET /api/jobs/run` 执行；当前线上 Hobby 套餐不支持更高频率。自托管环境也可以使用下面的 `POST` 调用：
 
 ```bash
 curl --fail --request POST \
@@ -330,7 +444,15 @@ curl --fail --request POST \
   https://www.company.tld/api/jobs/run
 ```
 
-在平台调度器或系统定时任务中按业务量设置频率。`CRON_SECRET` 只能保存在调度器的 Secret Manager 中，不能写入仓库或日志。
+首次切换已有数据时，任务入口会自动为缺少翻译元数据的商品、文章和公司资料补建状态并入队。若需要手动执行一次批量补队列，可以运行：
+
+```bash
+TRANSLATION_BACKFILL_CONFIRM=BACKFILL_TRANSLATIONS pnpm translations:backfill -- --apply
+```
+
+`--apply` 会写入数据库；生产环境必须同时设置确认变量。`CRON_SECRET` 只能保存在调度器的 Secret Manager 中，不能写入仓库或日志。
+
+翻译队列按语言优先级依次处理：英文、德文、西班牙文、葡萄牙文、阿拉伯文、希伯来文、韩文，最后是繁体中文。每次调度只消费一种语言，并发锁限制为一个翻译任务；当前语言完成后才会把同一内容排入下一种语言。某条内容失败时会停在当前语言，等待自动重试或管理员重新提交。
 
 ## 12. 日常更新
 

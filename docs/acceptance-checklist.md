@@ -24,7 +24,8 @@
 - [ ] Last-owner, self-delete and exact-name permanent-delete protections pass.
 - [ ] Draft, publish, unlist and retryable bulk-unlist flows pass.
 - [ ] Homepage accepts ordered published products and rejects more than eight.
-- [ ] Translation success, partial failure, timeout, stale job, retry and manual lock pass.
+- [ ] Production `LIBRETRANSLATE_URL` is configured, Vercel Cron or an equivalent scheduler invokes `/api/jobs/run`, and translation success, partial failure, timeout, stale job, retry and manual lock pass.
+- [ ] Translation queue processes English first, drains one target language at a time, never runs concurrent translation jobs, and advances to the next language only after the current language succeeds.
 - [ ] Invitation and password-reset email delivery pass.
 
 ## Public experience

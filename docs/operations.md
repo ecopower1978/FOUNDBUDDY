@@ -8,6 +8,7 @@ Production startup validates and refuses missing or unsafe values for:
   `CRON_SECRET`, `TRUST_PROXY_HEADERS=true`
 - `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`,
   `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL`
+- `LIBRETRANSLATE_URL`
 - `REDIS_URL`
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM_ADDRESS`, `SMTP_FROM_NAME`
 
@@ -19,7 +20,11 @@ file or repository.
 `CF-Connecting-IP`, `X-Real-IP` and `X-Forwarded-For` values and writes its own
 verified client address before forwarding the request.
 
-LibreTranslate, AI Chat and Blog Publish are independent optional integrations.
+Readiness includes the translation configuration alongside PostgreSQL,
+migrations, object storage and Redis. LibreTranslate is required for the
+multilingual production site; set
+`LIBRETRANSLATE_URL` to a reachable service and add `LIBRETRANSLATE_API_KEY` when
+the provider requires it. AI Chat and Blog Publish remain optional integrations.
 If `BLOG_PUBLISH_TOKEN` is empty, its route responds with 404. Keep the previous
 token temporarily in `BLOG_PUBLISH_TOKEN_PREVIOUS` during rotation.
 
@@ -109,16 +114,23 @@ target.
 3. Run the independent migrator job and require exit code zero.
 4. Start new stateless application instances.
 5. Require `/api/health/live` and `/api/health/ready` to return 200. Readiness
-   checks PostgreSQL, the latest migration, S3 and Redis.
+   checks PostgreSQL, the latest migration, S3, Redis and translation configuration.
 6. Run internal smoke checks: login, draft/save/publish/unlist, image upload,
    translation job, email reset, AI fallback and all nine locale routes.
 7. Switch traffic only after smoke checks pass.
 8. Re-enable merchant writes after final reconciliation.
 
-Run media and translation workers through the protected `/api/jobs/run`
-endpoint with `Authorization: Bearer $CRON_SECRET`. Use a scheduler interval
-appropriate for the expected volume; the endpoint drains a small serial media
-batch before the translation queue on each invocation.
+On Vercel, `vercel.json` schedules the protected `GET /api/jobs/run` endpoint
+daily at 02:00 UTC; the current Hobby plan does not permit a more frequent
+schedule. Vercel sends `Authorization: Bearer $CRON_SECRET` when the project
+secret is configured. Self-hosted schedulers may use the same endpoint with
+either GET or POST. The endpoint drains a small serial media batch before the
+translation queue on each invocation and repairs missing translation metadata
+for legacy records before running queued jobs. Translation jobs use one global
+concurrency slot and separate language queues. The order is English, German,
+Spanish, Portuguese, Arabic, Hebrew, Korean and Traditional Chinese; one
+invocation drains only one language queue, and a later language is queued only
+after the current language completes.
 
 ## Backup and restore
 
