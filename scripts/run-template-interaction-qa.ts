@@ -5,8 +5,17 @@ import path from 'node:path'
 const templates = ['trust', 'catalog', 'solution'] as const
 type Template = (typeof templates)[number]
 
-const locales = ['en', 'es', 'ar', 'de', 'he', 'ko', 'pt', 'zh-CN', 'zh-TW'] as const
-type Locale = (typeof locales)[number]
+const supportedLocales = ['en', 'es', 'ar', 'de', 'he', 'ko', 'pt', 'zh-CN', 'zh-TW'] as const
+type Locale = (typeof supportedLocales)[number]
+const requestedLocales = (process.env.QA_LOCALES || '')
+  .split(/[\s,]+/)
+  .map((locale) => locale.trim())
+  .filter(Boolean)
+const invalidLocales = requestedLocales.filter(
+  (locale) => !supportedLocales.includes(locale as Locale),
+)
+if (invalidLocales.length) throw new Error(`Unknown QA_LOCALES: ${invalidLocales.join(', ')}`)
+const sourceLocales = (requestedLocales.length ? requestedLocales : [...supportedLocales]) as Locale[]
 
 const requestedTemplate = process.argv.find((value) => value.startsWith('--template='))?.split('=')[1]
 const template = (requestedTemplate || process.env.SITE_TEMPLATE || 'trust') as Template
@@ -18,10 +27,38 @@ const outputRoot = path.resolve(
 )
 const templateOutput = path.join(outputRoot, template)
 
+const parseNonNegativeInteger = (value: string | undefined, fallback: number) => {
+  if (!value) return fallback
+  const parsed = Number.parseInt(value, 10)
+  if (!Number.isFinite(parsed) || parsed < 0) throw new Error(`Expected a non-negative integer, received: ${value}`)
+  return parsed
+}
+
+const caseDelayMs = parseNonNegativeInteger(process.env.QA_DELAY_MS, 0)
+const settleDelayMs = parseNonNegativeInteger(process.env.QA_SETTLE_MS, 250)
+const scrollStepDelayMs = parseNonNegativeInteger(process.env.QA_SCROLL_STEP_MS, 60)
+const scrollSettleDelayMs = parseNonNegativeInteger(process.env.QA_SCROLL_SETTLE_MS, 120)
+
+async function pause(page: Page, delayMs = caseDelayMs) {
+  if (delayMs) await page.waitForTimeout(delayMs)
+}
+
 const viewports = {
   mobile: { width: 375, height: 812 },
   desktop: { width: 1440, height: 900 },
 } as const
+const requestedViewports = (process.env.QA_VIEWPORTS || '')
+  .split(/[\s,]+/)
+  .map((viewport) => viewport.trim())
+  .filter(Boolean)
+const invalidViewports = requestedViewports.filter(
+  (viewport) => !(viewport in viewports),
+)
+if (invalidViewports.length) throw new Error(`Unknown QA_VIEWPORTS: ${invalidViewports.join(', ')}`)
+const sourceViewports = (requestedViewports.length
+  ? requestedViewports.map((viewport) => viewports[viewport as keyof typeof viewports])
+  : [viewports.desktop, viewports.mobile]) as Array<{ width: number; height: number }>
+const discoveryViewport = sourceViewports[0] || viewports.desktop
 
 type CheckStatus = 'passed' | 'failed' | 'skipped'
 type Check = {
@@ -85,19 +122,19 @@ async function waitForRenderedPage(page: Page) {
     timeout: 20_000,
   })
   await page.evaluate(() => document.fonts?.ready)
-  await page.waitForTimeout(250)
+  await page.waitForTimeout(settleDelayMs)
 }
 
 async function warmLazyImages(page: Page) {
-  await page.evaluate(async () => {
+  await page.evaluate(async ({ stepDelayMs, settleDelayMs: lazySettleDelayMs }) => {
     const step = Math.max(window.innerHeight, 640)
     for (let top = 0; top < document.documentElement.scrollHeight; top += step) {
       window.scrollTo(0, top)
-      await new Promise((resolve) => window.setTimeout(resolve, 60))
+      await new Promise((resolve) => window.setTimeout(resolve, stepDelayMs))
     }
     window.scrollTo(0, 0)
-    await new Promise((resolve) => window.setTimeout(resolve, 120))
-  })
+    await new Promise((resolve) => window.setTimeout(resolve, lazySettleDelayMs))
+  }, { stepDelayMs: scrollStepDelayMs, settleDelayMs: scrollSettleDelayMs })
 }
 
 async function collectPageState(page: Page) {
@@ -177,6 +214,7 @@ async function openAndCheck(
     await waitForRenderedPage(page)
     await warmLazyImages(page)
     state = await collectPageState(page)
+    await pause(page)
   } catch (error) {
     navigationError = describeError(error)
   }
@@ -355,17 +393,17 @@ async function checkLanguageSwitcher(page: Page, route: string) {
   try {
     await trigger.click()
     const options = page.locator('[role="option"]:visible')
-    if (await options.count() !== locales.length) {
-      throw new Error(`Expected ${locales.length} language options, received ${await options.count()}`)
+    if (await options.count() !== supportedLocales.length) {
+      throw new Error(`Expected ${supportedLocales.length} language options, received ${await options.count()}`)
     }
-    pass('button display', 'language option list opens', route, undefined, `${locales.length} options`)
+    pass('button display', 'language option list opens', route, undefined, `${supportedLocales.length} options`)
   } catch (error) {
     fail('button display', 'language option list opens', route, error)
     return
   }
 
-  for (let index = 0; index < locales.length; index += 1) {
-    const locale = locales[index]
+  for (let index = 0; index < supportedLocales.length; index += 1) {
+    const locale = supportedLocales[index]
     try {
       await page.goto(new URL(route, baseURL).toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 })
       await waitForRenderedPage(page)
@@ -532,19 +570,18 @@ async function checkUnclassifiedButtons(page: Page, route: string) {
 
 async function main() {
   await mkdir(templateOutput, { recursive: true })
-  const browser = await chromium.launch({ headless: true })
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--disable-gpu', '--disable-dev-shm-usage'],
+  })
   const context = await browser.newContext()
   const page = await context.newPage()
   page.setDefaultTimeout(15_000)
 
-  const homeRoutes: Array<{ route: string; locale: Locale }> = [
-    { route: '/en', locale: 'en' },
-    { route: '/zh-CN', locale: 'zh-CN' },
-    { route: '/ar', locale: 'ar' },
-    { route: '/he', locale: 'he' },
-  ]
-
-  const sourceViewports = [viewports.desktop, viewports.mobile]
+  const homeRoutes: Array<{ route: string; locale: Locale }> = sourceLocales.map((locale) => ({
+    route: `/${locale}`,
+    locale,
+  }))
 
   for (const { route } of homeRoutes) {
     for (const viewport of sourceViewports) {
@@ -580,9 +617,9 @@ async function main() {
   let productRoute: string | null = null
   let postRoute: string | null = null
   for (const route of discoveryRoutes) {
-    const result = await openAndCheck(page, route, viewports.desktop)
+    const result = await openAndCheck(page, route, discoveryViewport)
     await checkProtocolLinks(page, route)
-    await checkInternalLinkTargets(page, route, result.links, viewports.desktop)
+    await checkInternalLinkTargets(page, route, result.links, discoveryViewport)
     if (route.endsWith('/products')) {
       const productLink = result.links.find((link) => /\/products\/[^/]+$/.test(new URL(link.href, baseURL).pathname))
       productRoute = productLink ? pathWithSearch(new URL(productLink.href, baseURL)) : null
@@ -646,6 +683,12 @@ async function main() {
     completedAt: new Date().toISOString(),
     baseURL,
     template,
+    throttle: {
+      caseDelayMs,
+      settleDelayMs,
+      scrollStepDelayMs,
+      scrollSettleDelayMs,
+    },
     checks: checks.length,
     passed,
     failed,

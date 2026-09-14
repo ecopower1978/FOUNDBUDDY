@@ -171,6 +171,9 @@ function ContactSection({ data }: { data: HomeTemplateData }) {
           <p className="trade-kicker">{labels.contact}</p>
           <h2>{labels.contactTitle}</h2>
           <p>{labels.contactIntro}</p>
+          <Link className="template-contact__locale-link" href={`/${locale}/products`}>
+            {labels.viewCatalog} <ArrowRight size={16} />
+          </Link>
         </div>
         <div className="trade-contact__details">
           {email && (
@@ -221,9 +224,6 @@ function ContactSection({ data }: { data: HomeTemplateData }) {
       <span className="template-contact__brand" aria-hidden="true">
         {brandName}
       </span>
-      <Link className="template-contact__locale-link" href={`/${locale}/products`}>
-        {labels.viewCatalog}
-      </Link>
     </section>
   )
 }
