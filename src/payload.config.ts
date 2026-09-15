@@ -18,6 +18,7 @@ import { defaultLexical } from '@/fields/defaultLexical'
 import { Company } from '@/globals/Company'
 import { CustomerService } from '@/globals/CustomerService'
 import { Homepage } from '@/globals/Homepage'
+import { SiteSettings } from '@/globals/SiteSettings'
 import { mediaTasks } from '@/jobs/mediaTasks'
 import { translationTasks } from '@/jobs/translationTasks'
 import { plugins } from '@/plugins'
@@ -102,7 +103,7 @@ export default buildConfig({
   collections: [Products, Posts, Media, Categories, Users, AuditEvents],
   cors: siteOrigins,
   csrf: siteOrigins,
-  globals: [Company, CustomerService, Homepage],
+  globals: [Company, CustomerService, Homepage, SiteSettings],
   graphQL: {
     disablePlaygroundInProduction: true,
   },

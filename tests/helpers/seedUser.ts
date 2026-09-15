@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto'
 
 export const testUser = {
   email: 'e2e-owner@example.test',
-  password: `E2E-${randomBytes(24).toString('base64url')}`,
+  password: process.env.E2E_TEST_PASSWORD ?? `E2E-${randomBytes(24).toString('base64url')}`,
 }
 
 /**
@@ -25,6 +25,23 @@ export async function seedTestUser(): Promise<void> {
       id: existing.docs[0].id,
       data: { ...testUser, name: 'E2E Owner', role: 'owner' },
       overrideAccess: true,
+    })
+    return
+  }
+
+  const existingOwner = await payload.find({
+    collection: 'users',
+    limit: 1,
+    overrideAccess: true,
+    where: { role: { equals: 'owner' } },
+  })
+
+  if (existingOwner.docs[0]) {
+    await payload.create({
+      collection: 'users',
+      data: { ...testUser, name: 'E2E Owner', role: 'owner' },
+      overrideAccess: false,
+      user: existingOwner.docs[0],
     })
     return
   }

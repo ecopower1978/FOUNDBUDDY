@@ -4,6 +4,7 @@ import { Banner } from '@payloadcms/ui/elements/Banner'
 import { Button, useLocale } from '@payloadcms/ui'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { TemplateSwitcher } from '@/components/TemplateSwitcher'
 import './index.scss'
 
 type DashboardData = {
@@ -34,6 +35,12 @@ const entries = [
     href: '/admin/globals/customer-service',
     ownerOnly: true,
     title: '客服 API 配置',
+  },
+  {
+    description: '在三套固定前台模板中选择当前展示风格。',
+    href: '/admin/globals/site-settings',
+    ownerOnly: true,
+    title: '前台模板风格',
   },
 ]
 
@@ -103,6 +110,8 @@ export default function BeforeDashboard() {
             ))}
         </nav>
       </section>
+
+      {data?.role === 'owner' && <TemplateSwitcher />}
 
       {data?.role === 'owner' && (
         <section

@@ -101,6 +101,11 @@ function getSiteOrigins(siteURL: string): string[] {
     'https://foundbuddy.vercel.app',
   ])
 
+  if (process.env.NODE_ENV !== 'production') {
+    origins.add('http://localhost:3000')
+    origins.add('http://127.0.0.1:3000')
+  }
+
   if (
     canonical.hostname !== 'localhost' &&
     canonical.hostname !== '127.0.0.1' &&

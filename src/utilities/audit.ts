@@ -13,6 +13,7 @@ export type AuditAction =
   | 'content.published'
   | 'content.unpublished'
   | 'customer_service.updated'
+  | 'site_template.updated'
   | 'translation.retry'
   | 'homepage.updated'
 

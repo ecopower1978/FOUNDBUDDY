@@ -36,7 +36,7 @@ export const enum__locales = pgEnum('enum__locales', [
 ])
 export const enum_products_translation_status_locale = pgEnum(
   'enum_products_translation_status_locale',
-  ['en', 'es', 'ar', 'de', 'he', 'ko', 'pt', 'zh-TW'],
+  ['en', 'de', 'es', 'pt', 'ar', 'he', 'ko', 'zh-TW'],
 )
 export const enum_products_translation_status_status = pgEnum(
   'enum_products_translation_status_status',
@@ -53,7 +53,7 @@ export const enum_products_workflow_state = pgEnum('enum_products_workflow_state
 export const enum_products_status = pgEnum('enum_products_status', ['draft', 'published'])
 export const enum__products_v_version_translation_status_locale = pgEnum(
   'enum__products_v_version_translation_status_locale',
-  ['en', 'es', 'ar', 'de', 'he', 'ko', 'pt', 'zh-TW'],
+  ['en', 'de', 'es', 'pt', 'ar', 'he', 'ko', 'zh-TW'],
 )
 export const enum__products_v_version_translation_status_status = pgEnum(
   'enum__products_v_version_translation_status_status',
@@ -84,12 +84,12 @@ export const enum__products_v_published_locale = pgEnum('enum__products_v_publis
 ])
 export const enum_posts_translation_status_locale = pgEnum('enum_posts_translation_status_locale', [
   'en',
-  'es',
-  'ar',
   'de',
+  'es',
+  'pt',
+  'ar',
   'he',
   'ko',
-  'pt',
   'zh-TW',
 ])
 export const enum_posts_translation_status_status = pgEnum('enum_posts_translation_status_status', [
@@ -106,7 +106,7 @@ export const enum_posts_translation_status_mode = pgEnum('enum_posts_translation
 export const enum_posts_status = pgEnum('enum_posts_status', ['draft', 'published'])
 export const enum__posts_v_version_translation_status_locale = pgEnum(
   'enum__posts_v_version_translation_status_locale',
-  ['en', 'es', 'ar', 'de', 'he', 'ko', 'pt', 'zh-TW'],
+  ['en', 'de', 'es', 'pt', 'ar', 'he', 'ko', 'zh-TW'],
 )
 export const enum__posts_v_version_translation_status_status = pgEnum(
   'enum__posts_v_version_translation_status_status',
@@ -155,7 +155,7 @@ export const enum_payload_jobs_task_slug = pgEnum('enum_payload_jobs_task_slug',
 ])
 export const enum_company_translation_status_locale = pgEnum(
   'enum_company_translation_status_locale',
-  ['en', 'es', 'ar', 'de', 'he', 'ko', 'pt', 'zh-TW'],
+  ['en', 'de', 'es', 'pt', 'ar', 'he', 'ko', 'zh-TW'],
 )
 export const enum_company_translation_status_status = pgEnum(
   'enum_company_translation_status_status',
@@ -170,6 +170,11 @@ export const enum_customer_service_auth_scheme = pgEnum('enum_customer_service_a
   'raw',
   'x-api-key',
   'none',
+])
+export const enum_site_settings_template_key = pgEnum('enum_site_settings_template_key', [
+  'trust',
+  'catalog',
+  'solution',
 ])
 
 export const products_specifications = pgTable(
@@ -1129,6 +1134,7 @@ export const payload_jobs = pgTable(
     queue: varchar('queue').default('default'),
     waitUntil: timestamp('wait_until', { mode: 'string', withTimezone: true, precision: 3 }),
     processing: boolean('processing').default(false),
+    concurrencyKey: varchar('concurrency_key'),
     updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true, precision: 3 })
       .defaultNow()
       .notNull(),
@@ -1144,6 +1150,7 @@ export const payload_jobs = pgTable(
     index('payload_jobs_queue_idx').on(columns.queue),
     index('payload_jobs_wait_until_idx').on(columns.waitUntil),
     index('payload_jobs_processing_idx').on(columns.processing),
+    index('payload_jobs_concurrency_key_idx').on(columns.concurrencyKey),
     index('payload_jobs_updated_at_idx').on(columns.updatedAt),
     index('payload_jobs_created_at_idx').on(columns.createdAt),
   ],
@@ -1428,6 +1435,13 @@ export const homepage_rels = pgTable(
     }).onDelete('cascade'),
   ],
 )
+
+export const site_settings = pgTable('site_settings', {
+  id: serial('id').primaryKey(),
+  templateKey: enum_site_settings_template_key('template_key').notNull().default('trust'),
+  updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true, precision: 3 }),
+  createdAt: timestamp('created_at', { mode: 'string', withTimezone: true, precision: 3 }),
+})
 
 export const relations_products_specifications_locales = relations(
   products_specifications_locales,
@@ -1927,6 +1941,7 @@ export const relations_homepage = relations(homepage, ({ many }) => ({
     relationName: '_rels',
   }),
 }))
+export const relations_site_settings = relations(site_settings, () => ({}))
 
 type DatabaseSchema = {
   enum__locales: typeof enum__locales
@@ -1959,6 +1974,7 @@ type DatabaseSchema = {
   enum_company_translation_status_status: typeof enum_company_translation_status_status
   enum_company_translation_status_mode: typeof enum_company_translation_status_mode
   enum_customer_service_auth_scheme: typeof enum_customer_service_auth_scheme
+  enum_site_settings_template_key: typeof enum_site_settings_template_key
   products_specifications: typeof products_specifications
   products_specifications_locales: typeof products_specifications_locales
   products_translation_status: typeof products_translation_status
@@ -2006,6 +2022,7 @@ type DatabaseSchema = {
   customer_service: typeof customer_service
   homepage: typeof homepage
   homepage_rels: typeof homepage_rels
+  site_settings: typeof site_settings
   relations_products_specifications_locales: typeof relations_products_specifications_locales
   relations_products_specifications: typeof relations_products_specifications
   relations_products_translation_status: typeof relations_products_translation_status
@@ -2053,6 +2070,7 @@ type DatabaseSchema = {
   relations_customer_service: typeof relations_customer_service
   relations_homepage_rels: typeof relations_homepage_rels
   relations_homepage: typeof relations_homepage
+  relations_site_settings: typeof relations_site_settings
 }
 
 declare module '@payloadcms/db-postgres' {

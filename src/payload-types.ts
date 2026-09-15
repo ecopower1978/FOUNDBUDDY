@@ -108,11 +108,13 @@ export interface Config {
     company: Company;
     'customer-service': CustomerService;
     homepage: Homepage;
+    'site-settings': SiteSetting;
   };
   globalsSelect: {
     company: CompanySelect<false> | CompanySelect<true>;
     'customer-service': CustomerServiceSelect<false> | CustomerServiceSelect<true>;
     homepage: HomepageSelect<false> | HomepageSelect<true>;
+    'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
   };
   locale: 'en' | 'es' | 'ar' | 'de' | 'he' | 'ko' | 'pt' | 'zh-CN' | 'zh-TW';
   widgets: {
@@ -1089,6 +1091,21 @@ export interface Homepage {
   createdAt?: string | null;
 }
 /**
+ * 选择三套固定前台模板之一。三套模板共用同一份内容和管理后台，不会新增模板。
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings".
+ */
+export interface SiteSetting {
+  id: number;
+  /**
+   * 保存后所有语言和桌面端、手机端前台都会使用这个模板。
+   */
+  templateKey: 'trust' | 'catalog' | 'solution';
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "company_select".
  */
@@ -1148,6 +1165,16 @@ export interface CustomerServiceSelect<T extends boolean = true> {
  */
 export interface HomepageSelect<T extends boolean = true> {
   featuredProducts?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings_select".
+ */
+export interface SiteSettingsSelect<T extends boolean = true> {
+  templateKey?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

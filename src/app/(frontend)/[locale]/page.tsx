@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
 
 import { siteBrandName, siteContactEmail } from '@/config/siteVariant'
-import { siteTemplate } from '@/config/siteTemplate'
 import { getCompany } from '@/data/company'
 import {
   getCachedHomepage,
   getCachedPublishedPosts,
   getCachedPublishedProducts,
 } from '@/data/publicContent'
+import { getPublicSiteTemplate } from '@/data/siteSettings'
 import { getMessages, isSiteLocale, localeMeta, locales, type SiteLocale } from '@/i18n/config'
 import { isLocaleTranslationComplete } from '@/i18n/translationWorkflow'
 import {
@@ -57,9 +57,7 @@ function toTemplateProduct(
     category: nonEmpty(product.category, labels.product),
     shortDescription: nonEmpty(product.shortDescription, labels.productsIntro),
     slug: product.slug,
-    image: imageURL
-      ? { alt: nonEmpty(firstImage?.alt, product.title), url: imageURL }
-      : null,
+    image: imageURL ? { alt: nonEmpty(firstImage?.alt, product.title), url: imageURL } : null,
   }
 }
 
@@ -100,11 +98,12 @@ export async function generateMetadata({ params }: HomePageProps): Promise<Metad
 export default async function HomePage({ params }: HomePageProps) {
   const locale = resolveLocale((await params).locale)
   const t = getMessages(locale)
-  const [productResult, postResult, company, homepage] = await Promise.all([
+  const [productResult, postResult, company, homepage, template] = await Promise.all([
     getCachedPublishedProducts(locale),
     getCachedPublishedPosts(locale),
     getCompany(locale),
     getCachedHomepage(locale),
+    getPublicSiteTemplate(),
   ])
 
   const labels = {
@@ -203,7 +202,7 @@ export default async function HomePage({ params }: HomePageProps) {
     wechat: nonEmpty(company.contact?.wechat, ''),
   }
 
-  if (siteTemplate === 'catalog') return <CatalogHomeTemplate {...data} />
-  if (siteTemplate === 'solution') return <SolutionHomeTemplate {...data} />
+  if (template === 'catalog') return <CatalogHomeTemplate {...data} />
+  if (template === 'solution') return <SolutionHomeTemplate {...data} />
   return <TrustHomeTemplate {...data} />
 }

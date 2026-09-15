@@ -6,6 +6,7 @@ import * as migration_20260901_000000_add_media_prefix from './20260901_000000_a
 import * as migration_20260901_010000_add_media_banner_size from './20260901_010000_add_media_banner_size'
 import * as migration_20260901_020000_add_media_job from './20260901_020000_add_media_job'
 import * as migration_20260910_000000_translation_concurrency from './20260910_000000_translation_concurrency'
+import * as migration_20260914_000000_site_settings from './20260914_000000_site_settings'
 
 export const migrations = [
   {
@@ -47,5 +48,10 @@ export const migrations = [
     up: migration_20260910_000000_translation_concurrency.up,
     down: migration_20260910_000000_translation_concurrency.down,
     name: '20260910_000000_translation_concurrency',
+  },
+  {
+    up: migration_20260914_000000_site_settings.up,
+    down: migration_20260914_000000_site_settings.down,
+    name: '20260914_000000_site_settings',
   },
 ]
