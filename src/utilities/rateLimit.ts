@@ -4,7 +4,7 @@ import { createClient, type RedisClientType } from 'redis'
 import { env } from '@/config/env'
 
 let client: RedisClientType | null = null
-let connecting: Promise<RedisClientType> | null = null
+let connecting: Promise<RedisClientType | null> | null = null
 const developmentWindows = new Map<
   string,
   { count: number; resetAt: number; value?: string }
@@ -26,9 +26,9 @@ async function getRedis() {
     connecting = next.connect().then(() => {
       client = next as RedisClientType
       return client
-    }).catch((error) => {
+    }).catch(() => {
       connecting = null
-      throw error
+      return null
     })
   }
   return connecting

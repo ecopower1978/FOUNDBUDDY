@@ -10,7 +10,6 @@ import {
   convertAgentContent,
   type AgentContentFormat,
 } from '@/utilities/agentContent'
-import { importAgentCoverImage } from '@/utilities/remoteImage'
 import {
   claimIdempotencyKey,
   consumeRateLimit,
@@ -164,7 +163,7 @@ export async function POST(request: NextRequest) {
       payload,
     })
     const importedCover = heroImageUrl
-      ? await importAgentCoverImage({
+      ? await (await import('@/utilities/remoteImage')).importAgentCoverImage({
           alt: title,
           locale,
           payload,
