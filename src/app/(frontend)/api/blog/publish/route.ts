@@ -1,7 +1,6 @@
 import { timingSafeEqual } from 'crypto'
-import configPromise from '@payload-config'
-import { NextRequest, NextResponse } from 'next/server'
-import { createLocalReq, getPayload } from 'payload'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 
 import { locales } from '@/i18n/config'
@@ -132,6 +131,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const [{ createLocalReq, getPayload }, { default: configPromise }] = await Promise.all([
+      import('payload'),
+      import('@payload-config'),
+    ])
     const payload = await getPayload({ config: configPromise })
     const {
       content,
