@@ -122,7 +122,7 @@ export const translationFields: Field[] = [
       components: {
         Cell: '@/components/TranslationStatusCell',
       },
-      description: '保存中文原文后系统会按本地词典生成译文。未命中内容会保留原文并标记为部分完成。',
+      description: '保存中文原文后系统会按配置的翻译服务生成译文；服务失败时会保留任务并标记为失败。',
       position: 'sidebar',
       readOnly: true,
     },

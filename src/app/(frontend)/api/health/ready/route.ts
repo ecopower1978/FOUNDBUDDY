@@ -56,9 +56,20 @@ export async function GET() {
     checks.migrations = (await checkMigrations(payload)).status
     checks.storage = await checkStorage()
     checks.redis = await redisPing()
+    if (env.translation.provider === 'libretranslate' && !env.translation.url) {
+      throw new Error('LibreTranslate is not configured')
+    }
+    if (
+      (env.translation.provider === 'yunbloom' || env.translation.provider === 'yunbloom-batch') &&
+      (!env.translation.url || !env.translation.apiKey)
+    ) {
+      throw new Error('Yunbloom translation is not configured')
+    }
     checks.translation =
-      env.translation.provider === 'libretranslate' && env.translation.url
-        ? 'libretranslate'
+      env.translation.provider === 'libretranslate' ||
+      env.translation.provider === 'yunbloom' ||
+      env.translation.provider === 'yunbloom-batch'
+        ? env.translation.provider
         : 'local-dictionary'
     return NextResponse.json(
       { checks, status: 'ready', time: new Date().toISOString() },

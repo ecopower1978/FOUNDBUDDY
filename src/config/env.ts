@@ -22,9 +22,15 @@ const productionSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_PUBLIC_URL: z.string().url().startsWith('https://'),
   S3_CLIENT_UPLOADS: z.enum(['true', 'false']).optional(),
-  // Local dictionary translation is the default and needs no network service.
-  // LibreTranslate remains an optional provider for deployments that choose it.
-  TRANSLATION_PROVIDER: z.enum(['dictionary', 'libretranslate']).optional(),
+  // Local dictionary translation is the default for development. Production
+  // should select a real provider so article content is not left partially
+  // translated.
+  TRANSLATION_PROVIDER: z
+    .enum(['dictionary', 'libretranslate', 'yunbloom', 'yunbloom-batch'])
+    .optional(),
+  TRANSLATION_API_URL: z.string().url().optional(),
+  TRANSLATION_API_KEY: z.string().min(1).optional(),
+  TRANSLATION_MODEL: z.string().min(1).optional(),
   // Redis and SMTP are optional for the initial/demo deployment. The runtime
   // already has an in-memory rate-limit/idempotency fallback, and Payload
   // leaves email disabled when SMTP is not configured.
@@ -77,10 +83,15 @@ export const env = {
     user: process.env.SMTP_USER || '',
   },
   translation: {
-    apiKey: process.env.LIBRETRANSLATE_API_KEY || '',
+    apiKey: process.env.TRANSLATION_API_KEY || process.env.LIBRETRANSLATE_API_KEY || '',
+    model: process.env.TRANSLATION_MODEL || '',
     provider:
-      process.env.TRANSLATION_PROVIDER === 'libretranslate' ? 'libretranslate' : 'dictionary',
-    url: process.env.LIBRETRANSLATE_URL || '',
+      process.env.TRANSLATION_PROVIDER === 'libretranslate' ||
+      process.env.TRANSLATION_PROVIDER === 'yunbloom' ||
+      process.env.TRANSLATION_PROVIDER === 'yunbloom-batch'
+        ? process.env.TRANSLATION_PROVIDER
+        : 'dictionary',
+    url: process.env.TRANSLATION_API_URL || process.env.LIBRETRANSLATE_URL || '',
   },
 } as const
 

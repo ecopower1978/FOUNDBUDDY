@@ -1,7 +1,14 @@
 import type { PayloadRequest, TaskConfig } from 'payload'
+import { convertLexicalToHTML } from '@payloadcms/richtext-lexical/html'
 
 import { type SiteLocale } from '@/i18n/config'
-import { translateLexical, translateTextWithCoverage } from '@/i18n/autoTranslate'
+import {
+  translateArticleWithYunbloomBatch,
+  translateLexical,
+  translateTextWithCoverage,
+} from '@/i18n/autoTranslate'
+import { env } from '@/config/env'
+import { convertAgentContent } from '@/utilities/agentContent'
 import {
   getNextTranslationLocale,
   getTranslationLocale,
@@ -165,6 +172,117 @@ async function updateCollectionStatuses(
   })
 }
 
+function normalizeTranslatedHTML(content: string): string {
+  const trimmed = content.trim()
+  if (!trimmed) return '<p></p>'
+  if (/<(?:p|h[1-6]|ul|ol|blockquote|pre|hr|table)\b/i.test(trimmed)) return trimmed
+
+  return trimmed
+    .split(/\r?\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `<p>${line}</p>`)
+    .join('')
+}
+
+function isPendingForSource(status: TranslationStatus, sourceHash: string) {
+  return (
+    status.mode !== 'manual' &&
+    !(
+      (status.status === 'complete' || status.status === 'partial') &&
+      status.sourceHash === sourceHash
+    )
+  )
+}
+
+async function translatePostWithYunbloomBatch(
+  req: PayloadRequest,
+  source: CollectionTranslationSource,
+  statuses: TranslationStatus[],
+  sourceHash: string,
+) {
+  const pending = statuses.filter((status) => isPendingForSource(status, sourceHash))
+  if (!pending.length) return { failed: 0, stale: false, translated: 0 }
+
+  let workingStatuses = statuses.map((status) =>
+    isPendingForSource(status, sourceHash)
+      ? { ...status, error: null, status: 'translating' as const }
+      : status,
+  )
+  await updateCollectionStatuses(req, 'posts', source.id, workingStatuses)
+
+  try {
+    const content =
+      source.content && typeof source.content === 'object'
+        ? convertLexicalToHTML({
+            data: source.content as Parameters<typeof convertLexicalToHTML>[0]['data'],
+            disableContainer: true,
+          })
+        : ''
+    const translations = await translateArticleWithYunbloomBatch({
+      content,
+      contentFormat: 'html',
+      locale: 'zh-CN',
+      status: 'published',
+      summary: source.excerpt || source.meta?.description || '',
+      title: source.title,
+    })
+
+    for (const status of pending) {
+      const translated = translations[status.locale]
+      const data = {
+        content: await convertAgentContent({
+          content: normalizeTranslatedHTML(translated.content),
+          format: 'html',
+        }),
+        ...(source.excerpt !== null && source.excerpt !== undefined
+          ? { excerpt: translated.summary }
+          : {}),
+        ...(source.meta
+          ? {
+              meta: {
+                ...source.meta,
+                ...(typeof source.meta.title === 'string' ? { title: translated.title } : {}),
+                ...(typeof source.meta.description === 'string'
+                  ? { description: translated.summary }
+                  : {}),
+              },
+            }
+          : {}),
+        title: translated.title,
+      }
+
+      await req.payload.update({
+        collection: 'posts',
+        id: source.id,
+        data,
+        locale: status.locale,
+        overrideAccess: true,
+        req,
+        ...translationWriteOptions(),
+        context: translationWriteContext(status.locale),
+      })
+      workingStatuses = updateStatus(workingStatuses, status.locale, {
+        error: null,
+        sourceHash,
+        status: 'complete',
+      })
+      await updateCollectionStatuses(req, 'posts', source.id, workingStatuses)
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 500) : '未知翻译错误'
+    workingStatuses = workingStatuses.map((status) =>
+      isPendingForSource(status, sourceHash)
+        ? { ...status, error: message, status: 'failed' as const }
+        : status,
+    )
+    await updateCollectionStatuses(req, 'posts', source.id, workingStatuses)
+    throw error
+  }
+
+  return { failed: 0, stale: false, translated: pending.length }
+}
+
 type TranslationExecutionOptions = {
   queueNext?: boolean
 }
@@ -204,6 +322,10 @@ async function translateCollection(
       })
     }
     return { failed: 0, stale: false, translated: 0 }
+  }
+
+  if (collection === 'posts' && env.translation.provider === 'yunbloom-batch') {
+    return translatePostWithYunbloomBatch(req, source, statuses, sourceHash)
   }
 
   statuses = updateStatus(statuses, locale, { error: null, status: 'translating' })

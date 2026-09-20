@@ -8,7 +8,7 @@ Production startup validates and refuses missing or unsafe values for:
   `CRON_SECRET`, `TRUST_PROXY_HEADERS=true`
 - `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`,
   `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL`
-- `LIBRETRANSLATE_URL`
+- `TRANSLATION_PROVIDER` plus the matching translation endpoint and secret
 - `REDIS_URL`
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM_ADDRESS`, `SMTP_FROM_NAME`
 
@@ -21,10 +21,13 @@ file or repository.
 verified client address before forwarding the request.
 
 Readiness includes the translation configuration alongside PostgreSQL,
-migrations, object storage and Redis. LibreTranslate is required for the
-multilingual production site; set
-`LIBRETRANSLATE_URL` to a reachable service and add `LIBRETRANSLATE_API_KEY` when
-the provider requires it. AI Chat and Blog Publish remain optional integrations.
+migrations, object storage and Redis. A real translation provider is required
+for the multilingual production site. Set `TRANSLATION_PROVIDER` to
+`libretranslate`, `yunbloom`, or `yunbloom-batch`, then configure `TRANSLATION_API_URL` and
+`TRANSLATION_API_KEY` (and `TRANSLATION_MODEL` when using an OpenAI-compatible
+base URL). The legacy `LIBRETRANSLATE_*` names remain supported for existing
+LibreTranslate deployments. AI Chat and Blog Publish remain optional
+integrations.
 If `BLOG_PUBLISH_TOKEN` is empty, its route responds with 404. Keep the previous
 token temporarily in `BLOG_PUBLISH_TOKEN_PREVIOUS` during rotation.
 

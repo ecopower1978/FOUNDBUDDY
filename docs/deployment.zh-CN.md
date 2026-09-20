@@ -222,9 +222,16 @@ S3_FORCE_PATH_STYLE=false
 
 REDIS_URL=rediss://default:replace-me@redis.internal:6379
 
-# 自动翻译（生产环境必填）
-LIBRETRANSLATE_URL=https://translate.company.tld
-LIBRETRANSLATE_API_KEY=replace-me-if-required
+# 自动翻译（生产环境必填，二选一）
+# LibreTranslate：
+TRANSLATION_PROVIDER=libretranslate
+TRANSLATION_API_URL=https://translate.company.tld
+TRANSLATION_API_KEY=replace-me-if-required
+# OpenAI 兼容的智能体 SSE 接口：
+# TRANSLATION_PROVIDER=yunbloom-batch
+# TRANSLATION_API_URL=https://api.example.tld/v2/chat/completions/share?shareId=replace-me
+# TRANSLATION_API_KEY=replace-me
+# TRANSLATION_MODEL=replace-me-only-for-a-base-url
 
 SMTP_HOST=smtp.company.tld
 SMTP_PORT=587
@@ -247,7 +254,7 @@ CSP_REPORT_ONLY=true
 - `S3_FORCE_PATH_STYLE` 是否启用由对象存储服务商决定；
 - 使用 SMTPS 直连端口（通常为 465）时将 `SMTP_SECURE` 设为 `true`；
 - `SITE_VARIANT=blank` 用于正式空白站点；不要在真实生产数据库中运行演示数据种子；
-- 自动翻译在多语言生产站点中是必需依赖；`LIBRETRANSLATE_URL` 必须指向部署环境可访问的服务，API Key 按服务商要求配置。
+- 自动翻译在多语言生产站点中是必需依赖；将 `TRANSLATION_PROVIDER` 设置为 `libretranslate`、`yunbloom` 或 `yunbloom-batch`，并配置对应的 `TRANSLATION_API_URL`、`TRANSLATION_API_KEY`。文章使用 `yunbloom-batch` 时，一次请求生成 8 种站点语言。使用 OpenAI 兼容基础地址时再设置 `TRANSLATION_MODEL`。旧的 `LIBRETRANSLATE_*` 变量仍兼容。
 - AI 客服和博客发布接口仍为可选集成，其他变量说明见 [`.env.example`](../.env.example)。
 
 设置环境文件权限：

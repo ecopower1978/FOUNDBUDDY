@@ -50,7 +50,7 @@ export default function BeforeDashboard() {
   const [translationRunning, setTranslationRunning] = useState(false)
   const [translationMessage, setTranslationMessage] = useState<string | null>(null)
 
-  const runDictionaryBackfill = async () => {
+  const runTranslationBackfill = async () => {
     setTranslationRunning(true)
     setTranslationMessage(null)
     try {
@@ -120,13 +120,13 @@ export default function BeforeDashboard() {
         >
           <div className="before-dashboard__section-heading">
             <div>
-              <h3 id="before-dashboard-translation">本地字典翻译</h3>
-              <p>按优先级回填现有内容；未命中的原文会保留并标记为部分完成。</p>
+              <h3 id="before-dashboard-translation">自动翻译回填</h3>
+              <p>按语言优先级回填现有内容；翻译服务失败时会保留任务并标记为失败。</p>
             </div>
             <Button
               buttonStyle="secondary"
               disabled={translationRunning}
-              onClick={runDictionaryBackfill}
+              onClick={runTranslationBackfill}
             >
               {translationRunning ? '正在处理…' : '立即回填翻译'}
             </Button>
