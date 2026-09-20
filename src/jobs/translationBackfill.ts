@@ -230,10 +230,12 @@ async function backfillCollection(
     const existingLocales = localesByID.get(String(doc.id)) || new Set<TranslationTargetLocale>()
     const shouldRefreshAuto =
       options.refreshAuto && currentStatuses.some((status) => status.mode === 'auto')
+    const hasQueuedTranslationWork = needsQueue(currentStatuses)
     if (
       !needsMetadataBackfill(doc, sourceHash) &&
       !shouldRefreshAuto &&
-      !hasMissingLocalizedContent(currentStatuses, existingLocales)
+      !hasMissingLocalizedContent(currentStatuses, existingLocales) &&
+      !hasQueuedTranslationWork
     ) {
       continue
     }
@@ -294,10 +296,12 @@ async function backfillCompany(
   const existingLocales = await localizedCompanyLocales(payload, req)
   const shouldRefreshAuto =
     options.refreshAuto && currentStatuses.some((status) => status.mode === 'auto')
+  const hasQueuedTranslationWork = needsQueue(currentStatuses)
   if (
     !needsMetadataBackfill(doc, sourceHash) &&
     !shouldRefreshAuto &&
-    !hasMissingLocalizedContent(currentStatuses, existingLocales)
+    !hasMissingLocalizedContent(currentStatuses, existingLocales) &&
+    !hasQueuedTranslationWork
   ) {
     return 0
   }
