@@ -185,6 +185,36 @@ export function parseYunbloomBatchContent(content: string): YunbloomBatchTransla
   return result
 }
 
+async function readYunbloomBatchContent(response: Response): Promise<string> {
+  if (!response.body) return extractYunbloomContent(await response.text())
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let body = ''
+
+  while (true) {
+    const chunk = await reader.read()
+    if (chunk.done) {
+      body += decoder.decode()
+      break
+    }
+
+    body += decoder.decode(chunk.value, { stream: true })
+    const candidate = extractYunbloomContent(body)
+    if (!candidate) continue
+
+    try {
+      parseYunbloomBatchContent(candidate)
+      await reader.cancel()
+      return candidate
+    } catch {
+      // The model is still streaming the JSON object. Keep reading.
+    }
+  }
+
+  return extractYunbloomContent(body)
+}
+
 const yunbloomBatchPrompt = [
   'You are the batch article translation engine for FoundBuddy, a B2B pet-product website.',
   'The user message is one JSON object containing a Simplified Chinese article.',
@@ -230,7 +260,7 @@ export async function translateArticleWithYunbloomBatch(input: {
   })
 
   if (!response.ok) throw new Error(`Yunbloom batch translation returned ${response.status}`)
-  const content = extractYunbloomContent(await response.text())
+  const content = await readYunbloomBatchContent(response)
   if (!content) throw new Error('Yunbloom batch translation returned an empty response')
   return parseYunbloomBatchContent(content)
 }
