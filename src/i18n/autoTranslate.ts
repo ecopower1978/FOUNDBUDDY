@@ -252,8 +252,8 @@ export async function translateArticleWithYunbloomBatch(input: {
       stream: false,
     }),
     headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${env.translation.apiKey}`,
+      Accept: 'text/event-stream',
+      Authorization: env.translation.apiKey,
       'Content-Type': 'application/json',
     },
     method: 'POST',
@@ -294,7 +294,7 @@ async function translateWithYunbloom(
     }),
     headers: {
       Accept: 'text/event-stream',
-      Authorization: `Bearer ${env.translation.apiKey}`,
+      Authorization: env.translation.apiKey,
       'Content-Type': 'application/json',
     },
     method: 'POST',
