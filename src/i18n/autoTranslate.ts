@@ -249,10 +249,10 @@ export async function translateArticleWithYunbloomBatch(input: {
         { content: yunbloomBatchPrompt, role: 'system' },
         { content: JSON.stringify(input), role: 'user' },
       ],
-      stream: true,
+      stream: false,
     }),
     headers: {
-      Accept: 'text/event-stream',
+      Accept: 'application/json',
       Authorization: `Bearer ${env.translation.apiKey}`,
       'Content-Type': 'application/json',
     },
