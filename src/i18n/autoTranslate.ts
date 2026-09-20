@@ -238,17 +238,18 @@ export async function translateArticleWithYunbloomBatch(input: {
   if (!env.translation.apiKey) {
     throw new Error('Yunbloom batch translation API key is not configured')
   }
+  if (!env.translation.model) {
+    throw new Error('Yunbloom batch translation shareId is not configured')
+  }
 
   const response = await fetch(endpoint, {
     body: JSON.stringify({
-      ...(env.translation.model ? { model: env.translation.model } : {}),
-      extra: {},
+      model: env.translation.model,
       messages: [
         { content: yunbloomBatchPrompt, role: 'system' },
         { content: JSON.stringify(input), role: 'user' },
       ],
-      sessionId: globalThis.crypto?.randomUUID?.() || `translation-batch-${Date.now()}`,
-      source: 'api',
+      stream: true,
     }),
     headers: {
       Accept: 'text/event-stream',
@@ -285,13 +286,11 @@ async function translateWithYunbloom(
   const response = await fetch(endpoint, {
     body: JSON.stringify({
       ...(env.translation.model ? { model: env.translation.model } : {}),
-      extra: {},
       messages: [
         { content: translationPrompt(target), role: 'system' },
         { content: text, role: 'user' },
       ],
-      sessionId: globalThis.crypto?.randomUUID?.() || `translation-${Date.now()}`,
-      source: 'api',
+      stream: true,
     }),
     headers: {
       Accept: 'text/event-stream',
