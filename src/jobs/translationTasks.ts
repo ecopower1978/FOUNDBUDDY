@@ -186,7 +186,7 @@ function normalizeTranslatedHTML(content: string): string {
     .join('')
 }
 
-function splitArticleHTML(content: string, maxChunkLength = 700): string[] {
+function splitArticleHTML(content: string, maxChunkLength = 4_000): string[] {
   const blocks = content
     .split(/(?=<(?:p|h[1-6]|ul|ol|blockquote|pre|table|hr)\b)/gi)
     .map((block) => block.trim())
@@ -270,47 +270,50 @@ async function translatePostWithYunbloomBatch(
     }
     const translations = mergeArticleTranslations(translatedChunks)
 
-    for (const status of pending) {
-      const translated = translations[status.locale]
-      const data = {
-        content: await convertAgentContent({
-          content: normalizeTranslatedHTML(translated.content),
-          format: 'html',
-        }),
-        ...(source.excerpt !== null && source.excerpt !== undefined
-          ? { excerpt: translated.summary.trim().slice(0, 260) }
-          : {}),
-        ...(source.meta
-          ? {
-              meta: {
-                ...source.meta,
-                ...(typeof source.meta.title === 'string' ? { title: translated.title } : {}),
-                ...(typeof source.meta.description === 'string'
-                  ? { description: translated.summary }
-                  : {}),
-              },
-            }
-          : {}),
-        title: translated.title,
-      }
+    await Promise.all(
+      pending.map(async (status) => {
+        const translated = translations[status.locale]
+        const data = {
+          content: await convertAgentContent({
+            content: normalizeTranslatedHTML(translated.content),
+            format: 'html',
+          }),
+          ...(source.excerpt !== null && source.excerpt !== undefined
+            ? { excerpt: translated.summary.trim().slice(0, 260) }
+            : {}),
+          ...(source.meta
+            ? {
+                meta: {
+                  ...source.meta,
+                  ...(typeof source.meta.title === 'string' ? { title: translated.title } : {}),
+                  ...(typeof source.meta.description === 'string'
+                    ? { description: translated.summary }
+                    : {}),
+                },
+              }
+            : {}),
+          title: translated.title,
+        }
 
-      await req.payload.update({
-        collection: 'posts',
-        id: source.id,
-        data,
-        locale: status.locale,
-        overrideAccess: true,
-        req,
-        ...translationWriteOptions(),
-        context: translationWriteContext(status.locale),
-      })
-      workingStatuses = updateStatus(workingStatuses, status.locale, {
-        error: null,
-        sourceHash,
-        status: 'complete',
-      })
-      await updateCollectionStatuses(req, 'posts', source.id, workingStatuses)
-    }
+        await req.payload.update({
+          collection: 'posts',
+          id: source.id,
+          data,
+          locale: status.locale,
+          overrideAccess: true,
+          req,
+          ...translationWriteOptions(),
+          context: translationWriteContext(status.locale),
+        })
+      }),
+    )
+
+    workingStatuses = workingStatuses.map((status) =>
+      pending.some((pendingStatus) => pendingStatus.locale === status.locale)
+        ? { ...status, error: null, sourceHash, status: 'complete' as const }
+        : status,
+    )
+    await updateCollectionStatuses(req, 'posts', source.id, workingStatuses)
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 500) : '未知翻译错误'
     workingStatuses = workingStatuses.map((status) =>
