@@ -6,6 +6,7 @@ import {
   translateArticleWithYunbloomBatch,
   translateLexical,
   translateTextWithCoverage,
+  type YunbloomBatchTranslations,
 } from '@/i18n/autoTranslate'
 import { env } from '@/config/env'
 import { convertAgentContent } from '@/utilities/agentContent'
@@ -185,6 +186,40 @@ function normalizeTranslatedHTML(content: string): string {
     .join('')
 }
 
+function splitArticleHTML(content: string, maxChunkLength = 700): string[] {
+  const blocks = content
+    .split(/(?=<(?:p|h[1-6]|ul|ol|blockquote|pre|table|hr)\b)/gi)
+    .map((block) => block.trim())
+    .filter(Boolean)
+  if (!blocks.length) return [content]
+
+  const chunks: string[] = []
+  let current = ''
+  for (const block of blocks) {
+    if (current && current.length + block.length > maxChunkLength) {
+      chunks.push(current)
+      current = ''
+    }
+    current += block
+  }
+  if (current) chunks.push(current)
+  return chunks
+}
+
+function mergeArticleTranslations(
+  chunks: YunbloomBatchTranslations[],
+): YunbloomBatchTranslations {
+  const first = chunks[0]
+  const merged = {} as YunbloomBatchTranslations
+  for (const locale of translationLocaleOrder) {
+    merged[locale] = {
+      ...first[locale],
+      content: chunks.map((chunk) => chunk[locale].content).join('\n'),
+    }
+  }
+  return merged
+}
+
 function isPendingForSource(status: TranslationStatus, sourceHash: string) {
   return (
     status.mode !== 'manual' &&
@@ -219,14 +254,21 @@ async function translatePostWithYunbloomBatch(
             disableContainer: true,
           })
         : ''
-    const translations = await translateArticleWithYunbloomBatch({
-      content,
-      contentFormat: 'html',
-      locale: 'zh-CN',
-      status: 'published',
-      summary: source.excerpt || source.meta?.description || '',
-      title: source.title,
-    })
+    const articleChunks = splitArticleHTML(content)
+    const translatedChunks: YunbloomBatchTranslations[] = []
+    for (const articleChunk of articleChunks) {
+      translatedChunks.push(
+        await translateArticleWithYunbloomBatch({
+          content: articleChunk,
+          contentFormat: 'html',
+          locale: 'zh-CN',
+          status: 'published',
+          summary: source.excerpt || source.meta?.description || '',
+          title: source.title,
+        }),
+      )
+    }
+    const translations = mergeArticleTranslations(translatedChunks)
 
     for (const status of pending) {
       const translated = translations[status.locale]
