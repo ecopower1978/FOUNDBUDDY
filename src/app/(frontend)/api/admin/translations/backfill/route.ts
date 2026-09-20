@@ -10,7 +10,9 @@ import { queueMissingTranslationJobs } from '@/jobs/translationBackfill'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-const MAX_JOBS_PER_RUN = 500
+// Keep each request comfortably below the platform gateway timeout. The
+// dashboard follows the continuation response and invokes this route again.
+const MAX_JOBS_PER_RUN = 1
 const STALE_TRANSLATION_JOB_MS = 5 * 60 * 1_000
 
 async function recoverStaleTranslationJobs(payload: Payload, req: PayloadRequest) {
@@ -76,7 +78,7 @@ async function drainTranslations(payload: Payload, req: PayloadRequest) {
   return { complete: !progress, processed }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const payload = await getPayload({ config: configPromise })
   const { user } = await payload.auth({ headers: await headers() })
   const req = await createLocalReq({ user: user || undefined }, payload)
@@ -86,7 +88,10 @@ export async function POST() {
 
   try {
     const recovered = await recoverStaleTranslationJobs(payload, req)
-    const backfill = await queueMissingTranslationJobs(payload, req)
+    const continuation = new URL(request.url).searchParams.get('continue') === '1'
+    const backfill = continuation
+      ? { company: 0, posts: 0, products: 0 }
+      : await queueMissingTranslationJobs(payload, req)
     const drained = await drainTranslations(payload, req)
     return NextResponse.json({ backfill, recovered, ...drained, ok: true })
   } catch (error) {

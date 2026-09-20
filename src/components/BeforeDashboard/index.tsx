@@ -54,24 +54,51 @@ export default function BeforeDashboard() {
     setTranslationRunning(true)
     setTranslationMessage(null)
     try {
-      const response = await fetch('/api/admin/translations/backfill', { method: 'POST' })
-      const result = (await response.json()) as {
-        backfill?: { company?: number; posts?: number; products?: number }
-        complete?: boolean
-        error?: string
-        processed?: number
-        recovered?: number
+      let queued = 0
+      let processed = 0
+      let recovered = 0
+      let complete = false
+
+      for (let attempt = 0; attempt < 128 && !complete; attempt += 1) {
+        const endpoint = attempt
+          ? '/api/admin/translations/backfill?continue=1'
+          : '/api/admin/translations/backfill'
+        const response = await fetch(endpoint, { method: 'POST' })
+        const raw = await response.text()
+        let result: {
+          backfill?: { company?: number; posts?: number; products?: number }
+          complete?: boolean
+          error?: string
+          processed?: number
+          recovered?: number
+        }
+        try {
+          result = JSON.parse(raw) as typeof result
+        } catch {
+          throw new Error(`回填服务异常（HTTP ${response.status}）`)
+        }
+        if (!response.ok) throw new Error(result.error || `回填失败（HTTP ${response.status}）`)
+
+        queued +=
+          (result.backfill?.company || 0) +
+          (result.backfill?.posts || 0) +
+          (result.backfill?.products || 0)
+        processed += result.processed || 0
+        recovered += result.recovered || 0
+        complete = result.complete === true
+
+        if (!complete) {
+          setTranslationMessage(
+            `已排队 ${queued} 个，已处理 ${processed} 个任务，继续处理剩余任务…`,
+          )
+          await new Promise((resolve) => setTimeout(resolve, 400))
+        }
       }
-      if (!response.ok) throw new Error(result.error || '回填失败')
-      const queued =
-        (result.backfill?.company || 0) +
-        (result.backfill?.posts || 0) +
-        (result.backfill?.products || 0)
-      const recovery = result.recovered || 0
+
       setTranslationMessage(
-        result.complete
-          ? `已排队 ${queued} 个，处理 ${result.processed || 0} 个翻译任务${recovery ? `，恢复 ${recovery} 个卡住任务` : ''}。`
-          : `本次已排队 ${queued} 个，处理 ${result.processed || 0} 个任务，剩余任务会继续排队。`,
+        complete
+          ? `已排队 ${queued} 个，处理 ${processed} 个翻译任务${recovered ? `，恢复 ${recovered} 个卡住任务` : ''}。`
+          : `已排队 ${queued} 个，处理 ${processed} 个任务，剩余任务仍在队列中，可稍后再次回填。`,
       )
     } catch (error) {
       setTranslationMessage(error instanceof Error ? error.message : '回填失败')

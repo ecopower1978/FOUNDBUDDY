@@ -61,7 +61,10 @@ function translationStatusContext() {
 }
 
 function translationWriteOptions() {
-  return process.env.TRANSLATION_BACKFILL_ON_BUILD === 'true' ? { disableTransaction: true } : {}
+  // Translation writes are already guarded by the workflow status and are
+  // intentionally recoverable. Avoid holding a database transaction open
+  // while a localized rich-text document is normalized and revalidated.
+  return { disableTransaction: true }
 }
 
 function translationWriteContext(locale: TranslationTargetLocale) {
@@ -206,9 +209,7 @@ function splitArticleHTML(content: string, maxChunkLength = 4_000): string[] {
   return chunks
 }
 
-function mergeArticleTranslations(
-  chunks: YunbloomBatchTranslations[],
-): YunbloomBatchTranslations {
+function mergeArticleTranslations(chunks: YunbloomBatchTranslations[]): YunbloomBatchTranslations {
   const first = chunks[0]
   const merged = {} as YunbloomBatchTranslations
   for (const locale of translationLocaleOrder) {
@@ -270,43 +271,41 @@ async function translatePostWithYunbloomBatch(
     }
     const translations = mergeArticleTranslations(translatedChunks)
 
-    await Promise.all(
-      pending.map(async (status) => {
-        const translated = translations[status.locale]
-        const data = {
-          content: await convertAgentContent({
-            content: normalizeTranslatedHTML(translated.content),
-            format: 'html',
-          }),
-          ...(source.excerpt !== null && source.excerpt !== undefined
-            ? { excerpt: translated.summary.trim().slice(0, 260) }
-            : {}),
-          ...(source.meta
-            ? {
-                meta: {
-                  ...source.meta,
-                  ...(typeof source.meta.title === 'string' ? { title: translated.title } : {}),
-                  ...(typeof source.meta.description === 'string'
-                    ? { description: translated.summary }
-                    : {}),
-                },
-              }
-            : {}),
-          title: translated.title,
-        }
+    // Payload stores localized fields in related rows. Write one locale at a
+    // time so concurrent updates cannot contend on the same parent document.
+    // The batch model call above still translates all locales in one request.
+    for (const status of pending) {
+      const translated = translations[status.locale]
+      const summary = translated.summary.trim().slice(0, 260)
+      const data = {
+        content: await convertAgentContent({
+          content: normalizeTranslatedHTML(translated.content),
+          format: 'html',
+        }),
+        ...(source.excerpt !== null && source.excerpt !== undefined ? { excerpt: summary } : {}),
+        ...(source.meta
+          ? {
+              meta: {
+                ...source.meta,
+                ...(typeof source.meta.title === 'string' ? { title: translated.title } : {}),
+                ...(typeof source.meta.description === 'string' ? { description: summary } : {}),
+              },
+            }
+          : {}),
+        title: translated.title,
+      }
 
-        await req.payload.update({
-          collection: 'posts',
-          id: source.id,
-          data,
-          locale: status.locale,
-          overrideAccess: true,
-          req,
-          ...translationWriteOptions(),
-          context: translationWriteContext(status.locale),
-        })
-      }),
-    )
+      await req.payload.update({
+        collection: 'posts',
+        id: source.id,
+        data,
+        locale: status.locale,
+        overrideAccess: true,
+        req,
+        ...translationWriteOptions(),
+        context: translationWriteContext(status.locale),
+      })
+    }
 
     workingStatuses = workingStatuses.map((status) =>
       pending.some((pendingStatus) => pendingStatus.locale === status.locale)
