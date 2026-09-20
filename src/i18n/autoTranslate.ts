@@ -290,7 +290,11 @@ export async function translateTextWithCoverage(
     }
   }
 
-  if (env.translation.provider === 'yunbloom' || env.translation.provider === 'yunbloom-batch') {
+  // The batch robot is reserved for whole articles. Product and company
+  // tasks still call this field-level function, so fall through to the safe
+  // local dictionary instead of writing the robot's eight-locale JSON into a
+  // single field.
+  if (env.translation.provider === 'yunbloom') {
     return {
       matchedTerms: 1,
       partial: false,
