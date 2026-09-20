@@ -11,6 +11,45 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 const MAX_JOBS_PER_RUN = 500
+const STALE_TRANSLATION_JOB_MS = 5 * 60 * 1_000
+
+async function recoverStaleTranslationJobs(payload: Payload, req: PayloadRequest) {
+  const staleBefore = new Date(Date.now() - STALE_TRANSLATION_JOB_MS).toISOString()
+  const result = await payload.find({
+    collection: 'payload-jobs',
+    depth: 0,
+    limit: 100,
+    overrideAccess: true,
+    pagination: false,
+    req,
+    where: {
+      and: [
+        { processing: { equals: true } },
+        { updatedAt: { less_than: staleBefore } },
+        { queue: { in: getTranslationQueueOrder() } },
+      ],
+    },
+  })
+
+  for (const job of result.docs) {
+    await payload.update({
+      collection: 'payload-jobs',
+      id: job.id,
+      data: {
+        completedAt: null,
+        error: null,
+        hasError: false,
+        processing: false,
+        waitUntil: null,
+      },
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+  }
+
+  return result.docs.length
+}
 
 async function drainTranslations(payload: Payload, req: PayloadRequest) {
   let processed = 0
@@ -46,9 +85,10 @@ export async function POST() {
   }
 
   try {
+    const recovered = await recoverStaleTranslationJobs(payload, req)
     const backfill = await queueMissingTranslationJobs(payload, req)
     const drained = await drainTranslations(payload, req)
-    return NextResponse.json({ backfill, ...drained, ok: true })
+    return NextResponse.json({ backfill, recovered, ...drained, ok: true })
   } catch (error) {
     payload.logger.error({ err: error, message: 'Dictionary translation backfill failed' })
     return NextResponse.json({ error: 'Translation backfill unavailable' }, { status: 503 })

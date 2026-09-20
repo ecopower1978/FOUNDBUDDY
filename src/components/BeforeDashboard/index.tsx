@@ -56,15 +56,22 @@ export default function BeforeDashboard() {
     try {
       const response = await fetch('/api/admin/translations/backfill', { method: 'POST' })
       const result = (await response.json()) as {
+        backfill?: { company?: number; posts?: number; products?: number }
         complete?: boolean
         error?: string
         processed?: number
+        recovered?: number
       }
       if (!response.ok) throw new Error(result.error || '回填失败')
+      const queued =
+        (result.backfill?.company || 0) +
+        (result.backfill?.posts || 0) +
+        (result.backfill?.products || 0)
+      const recovery = result.recovered || 0
       setTranslationMessage(
         result.complete
-          ? `已处理 ${result.processed || 0} 个翻译任务。`
-          : `本次已处理 ${result.processed || 0} 个任务，剩余任务会继续排队。`,
+          ? `已排队 ${queued} 个，处理 ${result.processed || 0} 个翻译任务${recovery ? `，恢复 ${recovery} 个卡住任务` : ''}。`
+          : `本次已排队 ${queued} 个，处理 ${result.processed || 0} 个任务，剩余任务会继续排队。`,
       )
     } catch (error) {
       setTranslationMessage(error instanceof Error ? error.message : '回填失败')
