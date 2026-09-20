@@ -278,7 +278,7 @@ async function translatePostWithYunbloomBatch(
           format: 'html',
         }),
         ...(source.excerpt !== null && source.excerpt !== undefined
-          ? { excerpt: translated.summary }
+          ? { excerpt: translated.summary.trim().slice(0, 260) }
           : {}),
         ...(source.meta
           ? {
