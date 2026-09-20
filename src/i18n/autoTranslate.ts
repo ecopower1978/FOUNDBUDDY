@@ -259,7 +259,15 @@ export async function translateArticleWithYunbloomBatch(input: {
     signal: AbortSignal.timeout(240_000),
   })
 
-  if (!response.ok) throw new Error(`Yunbloom batch translation returned ${response.status}`)
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => ''))
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 300)
+    throw new Error(
+      `Yunbloom batch translation returned ${response.status}${detail ? `: ${detail}` : ''}`,
+    )
+  }
   const content = await readYunbloomBatchContent(response)
   if (!content) throw new Error('Yunbloom batch translation returned an empty response')
   return parseYunbloomBatchContent(content)
