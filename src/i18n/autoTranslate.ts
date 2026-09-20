@@ -226,7 +226,7 @@ export async function translateArticleWithYunbloomBatch(input: {
       'Content-Type': 'application/json',
     },
     method: 'POST',
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(240_000),
   })
 
   if (!response.ok) throw new Error(`Yunbloom batch translation returned ${response.status}`)

@@ -8,7 +8,7 @@ import { getTranslationQueueOrder } from '@/i18n/translationWorkflow'
 import { sendSystemAlert } from '@/utilities/systemAlert'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300
 
 const TRANSLATION_JOB_BATCH_SIZE = 1
 

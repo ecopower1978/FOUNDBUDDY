@@ -8,7 +8,7 @@ import { getTranslationQueueOrder } from '@/i18n/translationWorkflow'
 import { queueMissingTranslationJobs } from '@/jobs/translationBackfill'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300
 
 const MAX_JOBS_PER_RUN = 500
 
