@@ -1,40 +1,17 @@
 import configPromise from '@payload-config'
 import { NextResponse } from 'next/server'
-import { createLocalReq, getPayload, type Payload, type PayloadRequest } from 'payload'
+import { createLocalReq, getPayload } from 'payload'
 
 import { env } from '@/config/env'
 import { queueMissingTranslationJobs } from '@/jobs/translationBackfill'
-import { getTranslationQueueOrder } from '@/i18n/translationWorkflow'
+import { drainTranslationQueue } from '@/jobs/translationQueueRunner'
 import { sendSystemAlert } from '@/utilities/systemAlert'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-const TRANSLATION_JOB_BATCH_SIZE = 1
-
-async function runTranslationQueue(payload: Payload, req: PayloadRequest) {
-  let lastResult: Awaited<ReturnType<typeof payload.jobs.run>> = {
-    noJobsRemaining: true,
-    remainingJobsFromQueried: 0,
-  }
-
-  for (const queue of getTranslationQueueOrder()) {
-    const result = await payload.jobs.run({
-      limit: TRANSLATION_JOB_BATCH_SIZE,
-      overrideAccess: true,
-      queue,
-      req,
-      sequential: true,
-      silent: true,
-    })
-    lastResult = result
-    if (Object.keys(result.jobStatus || {}).length > 0) return result
-  }
-
-  return lastResult
-}
-
 async function runJobs(request: Request) {
+  const functionDeadline = Date.now() + 300_000
   if (request.headers.get('authorization') !== `Bearer ${env.cronSecret}`) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
@@ -54,10 +31,12 @@ async function runJobs(request: Request) {
       sequential: true,
       silent: true,
     })
-    const translations = await runTranslationQueue(payload, req)
+    const translations = await drainTranslationQueue(payload, req, {
+      deadline: functionDeadline,
+      reserveMs: 90_000,
+    })
 
-    // Keep `result` compatible with the previous translation-only response;
-    // expose media stats alongside it for observability.
+    // Expose the drained translation queue and media stats for observability.
     return NextResponse.json({ backfill, media, ok: true, result: translations })
   } catch (error) {
     payload.logger.error({ err: error, message: 'Media and translation job runner failed' })

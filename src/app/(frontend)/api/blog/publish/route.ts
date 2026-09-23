@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'crypto'
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 
@@ -17,6 +17,8 @@ import {
   trustedClientKey,
 } from '@/utilities/rateLimit'
 import { writeAuditEvent } from '@/utilities/audit'
+
+export const maxDuration = 300
 
 const MAX_BODY_BYTES = 128 * 1024
 const bodySchema = z
@@ -67,6 +69,7 @@ function slugify(input: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const functionDeadline = Date.now() + 300_000
   const configuredTokens = tokens()
   if (!configuredTokens.length) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -207,6 +210,32 @@ export async function POST(request: NextRequest) {
       },
       summary: `自动化${status === 'published' ? '发布' : '创建草稿'}：${post.title}`,
     })
+
+    // The post hook has already queued the translation task. Start draining it
+    // after returning the publish response so the publishing agent is not held
+    // open for the model call and localized writes.
+    if (locale === 'zh-CN') {
+      after(async () => {
+        try {
+          const { drainTranslationQueue } = await import('@/jobs/translationQueueRunner')
+          const jobReq = await createLocalReq({}, payload)
+          const result = await drainTranslationQueue(payload, jobReq, {
+            deadline: functionDeadline,
+          })
+          payload.logger.info({
+            ...result,
+            message: 'Automatic translation queue finished after article publish',
+            postID: post.id,
+          })
+        } catch (error) {
+          payload.logger.error({
+            err: error,
+            message: 'Automatic translation queue failed after article publish',
+            postID: post.id,
+          })
+        }
+      })
+    }
 
     const response = {
       id: post.id,
